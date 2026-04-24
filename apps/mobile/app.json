@@ -6,6 +6,8 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "platforms": ["ios", "android"],
     "splash": {
       "backgroundColor": "#0f1117"
     },
@@ -14,14 +16,6 @@
         "usesNonExemptEncryption": false
       }
     },
-    "plugins": [
-      [
-        "expo-secure-store",
-        {
-          "configureAndroidBackup": true
-        }
-      ]
-    ],
     "assetBundlePatterns": [
       "**/*"
     ]
