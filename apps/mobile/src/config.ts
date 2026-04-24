@@ -2,7 +2,7 @@ import type { CardThemeName } from "./types";
 import { CARD_THEME_META } from "./theme";
 
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:3333";
+  process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://192.168.15.13:3333";
 
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() || null;
 export const SUPABASE_PUBLISHABLE_KEY =

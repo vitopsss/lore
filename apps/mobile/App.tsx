@@ -4,7 +4,6 @@ import "./src/i18n";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -37,10 +36,6 @@ const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "activity", label: "Activity" },
   { key: "profile", label: "Perfil" }
 ];
-
-const planLabel = (premiumStatus: boolean) => (premiumStatus ? "Clube" : "Basico");
-const streakLabel = (currentStreak: number) =>
-  currentStreak <= 0 ? "Sem ofensiva" : `${currentStreak}d de ofensiva`;
 
 const feedItemToBook = (item: FeedItem): BookSearchResult => ({
   googleId: item.googleId,
@@ -80,7 +75,6 @@ const AppShell = () => {
   }, [profile?.id]);
 
   const viewer = profile;
-  const viewerInitial = viewer?.username.charAt(0).toUpperCase() ?? "?";
 
   const openBookDetail = (book: BookSearchResult) => {
     setSelectedBook(book);
@@ -99,6 +93,27 @@ const AppShell = () => {
   const handlePostCreated = (_nextStreak: StreakSnapshot) => {
     setRefreshKey((current) => current + 1);
   };
+
+  const renderTabBar = () => (
+    <View style={styles.tabBar}>
+      {tabs.map((tab) => {
+        const active = tab.key === activeTab;
+
+        return (
+          <Pressable
+            key={tab.key}
+            onPress={() => {
+              setSelectedBook(null);
+              setActiveTab(tab.key);
+            }}
+            style={[styles.tabButton, active && styles.tabButtonActive]}
+          >
+            <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 
   const renderShellBody = () => {
     if (!authReady) {
@@ -137,29 +152,6 @@ const AppShell = () => {
     if (selectedBook && activeTab !== "post") {
       return (
         <>
-          {activeTab !== "profile" ? (
-            <View style={styles.viewerBar}>
-              <View style={styles.viewerSummary}>
-                {viewer.avatar ? (
-                  <Image source={{ uri: viewer.avatar }} style={styles.viewerAvatar} />
-                ) : (
-                  <View style={[styles.viewerAvatar, styles.viewerAvatarFallback]}>
-                    <Text style={styles.viewerAvatarText}>{viewerInitial}</Text>
-                  </View>
-                )}
-
-                <View style={styles.viewerCopy}>
-                  <Text style={styles.viewerName}>@{viewer.username}</Text>
-                  <Text style={styles.viewerMeta}>{planLabel(viewer.premiumStatus)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.viewerStreak}>
-                <Text style={styles.viewerStreakValue}>{streakLabel(viewer.currentStreak)}</Text>
-              </View>
-            </View>
-          ) : null}
-
           <View style={styles.content}>
             <BookDetailScreen
               viewerId={viewer.id}
@@ -169,27 +161,7 @@ const AppShell = () => {
               onLogBook={openComposerWithBook}
             />
           </View>
-
-          <View style={styles.tabBar}>
-            {tabs.map((tab) => {
-              const active = tab.key === activeTab;
-
-              return (
-                <Pressable
-                  key={tab.key}
-                  onPress={() => {
-                    setSelectedBook(null);
-                    setActiveTab(tab.key);
-                  }}
-                  style={[styles.tabButton, active && styles.tabButtonActive]}
-                >
-                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {renderTabBar()}
         </>
       );
     }
@@ -198,8 +170,8 @@ const AppShell = () => {
       if (activeTab === "home") {
         return (
           <HomeScreen
+            currentStreak={viewer.currentStreak}
             viewerId={viewer.id}
-            viewerUsername={viewer.username}
             onRequestDiscover={() => setActiveTab("discover")}
             onRequestActivity={() => setActiveTab("activity")}
             onRequestProfile={() => setActiveTab("profile")}
@@ -239,6 +211,7 @@ const AppShell = () => {
 
       return (
         <ProfileScreen
+          currentStreak={viewer.currentStreak}
           viewerId={viewer.id}
           viewerPremium={viewer.premiumStatus}
           viewerUsername={viewer.username}
@@ -252,49 +225,8 @@ const AppShell = () => {
 
     return (
       <>
-        {activeTab !== "profile" ? (
-          <View style={styles.viewerBar}>
-            <View style={styles.viewerSummary}>
-              {viewer.avatar ? (
-                <Image source={{ uri: viewer.avatar }} style={styles.viewerAvatar} />
-              ) : (
-                <View style={[styles.viewerAvatar, styles.viewerAvatarFallback]}>
-                  <Text style={styles.viewerAvatarText}>{viewerInitial}</Text>
-                </View>
-              )}
-
-              <View style={styles.viewerCopy}>
-                <Text style={styles.viewerName}>@{viewer.username}</Text>
-                <Text style={styles.viewerMeta}>{planLabel(viewer.premiumStatus)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.viewerStreak}>
-              <Text style={styles.viewerStreakValue}>{streakLabel(viewer.currentStreak)}</Text>
-            </View>
-          </View>
-        ) : null}
-
         <View style={styles.content}>{renderContent()}</View>
-
-        <View style={styles.tabBar}>
-          {tabs.map((tab) => {
-            const active = tab.key === activeTab;
-
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => {
-                  setSelectedBook(null);
-                  setActiveTab(tab.key);
-                }}
-                style={[styles.tabButton, active && styles.tabButtonActive]}
-              >
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {renderTabBar()}
       </>
     );
   };
@@ -453,67 +385,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
-    textTransform: "uppercase"
-  },
-  viewerBar: {
-    alignItems: "center",
-    backgroundColor: COLORS.panel,
-    borderColor: COLORS.border,
-    borderRadius: 22,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 12
-  },
-  viewerSummary: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    gap: 10
-  },
-  viewerAvatar: {
-    borderRadius: 999,
-    height: 40,
-    width: 40
-  },
-  viewerAvatarFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.backgroundRaised,
-    justifyContent: "center"
-  },
-  viewerAvatarText: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontWeight: "900"
-  },
-  viewerCopy: {
-    flex: 1,
-    gap: 2
-  },
-  viewerName: {
-    color: COLORS.text,
-    fontSize: 15,
-    fontWeight: "900"
-  },
-  viewerMeta: {
-    color: COLORS.textMuted,
-    fontSize: 12
-  },
-  viewerStreak: {
-    backgroundColor: COLORS.backgroundRaised,
-    borderColor: COLORS.borderStrong,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8
-  },
-  viewerStreakValue: {
-    color: COLORS.accentSoft,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.7,
     textTransform: "uppercase"
   },
   content: {

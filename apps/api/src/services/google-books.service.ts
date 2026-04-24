@@ -147,7 +147,7 @@ const getBookQualityScore = (book: BookInput) => {
   let score = 0;
 
   if (book.coverUrl) {
-    score += 30;
+    score += 80;
   }
 
   if (book.isbn) {
@@ -182,8 +182,10 @@ const getSearchScore = (book: BookInput, query: string) => {
     score += 55;
   }
 
-  if (normalizedAuthor.includes(normalizedQuery)) {
-    score += 25;
+  if (normalizedAuthor === normalizedQuery) {
+    score += 130;
+  } else if (normalizedAuthor.includes(normalizedQuery)) {
+    score += 80;
   }
 
   return score;
@@ -425,20 +427,24 @@ export const searchGoogleBooks = async (
   query: string,
   filters: CatalogSearchFilters = {}
 ) => {
-  const [googleResult, openLibraryResult] = await Promise.allSettled([
-    searchLiveGoogleBooks(query, filters),
-    searchOpenLibraryBooks(query, filters)
-  ]);
+  const googleBooks = await searchLiveGoogleBooks(query, filters);
+  const curatedGoogleBooks = collapseExactTitleMatches(
+    query,
+    rankAndDedupeBooks(query, googleBooks)
+  ).slice(0, 12);
 
-  const mergedBooks = rankAndDedupeBooks(query, [
-    ...(googleResult.status === "fulfilled" ? googleResult.value : []),
-    ...(openLibraryResult.status === "fulfilled" ? openLibraryResult.value : [])
-  ]);
+  if (curatedGoogleBooks.length > 0) {
+    return curatedGoogleBooks;
+  }
 
-  const curatedBooks = collapseExactTitleMatches(query, mergedBooks).slice(0, 12);
+  const openLibraryBooks = await searchOpenLibraryBooks(query, filters);
+  const curatedOpenLibraryBooks = collapseExactTitleMatches(
+    query,
+    rankAndDedupeBooks(query, openLibraryBooks)
+  ).slice(0, 12);
 
-  if (curatedBooks.length > 0) {
-    return curatedBooks;
+  if (curatedOpenLibraryBooks.length > 0) {
+    return curatedOpenLibraryBooks;
   }
 
   if (env.ALLOW_DEMO_BOOK_FALLBACK) {

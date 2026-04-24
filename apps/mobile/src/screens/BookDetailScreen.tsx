@@ -31,6 +31,8 @@ const monthLabels = [
   "dez"
 ];
 
+const SYNOPSIS_PREVIEW_LIMIT = 420;
+
 const starsText = (rating: number | null) => {
   if (!rating) {
     return "Sem nota";
@@ -79,6 +81,26 @@ const buildHeroMeta = (payload: BookDetailPayload | null) => {
   return items;
 };
 
+const buildSynopsisPreview = (text: string, limit = SYNOPSIS_PREVIEW_LIMIT) => {
+  const normalizedText = text.trim();
+
+  if (normalizedText.length <= limit) {
+    return {
+      isTruncated: false,
+      text: normalizedText
+    };
+  }
+
+  const rawPreview = normalizedText.slice(0, limit + 1);
+  const lastBreak = Math.max(rawPreview.lastIndexOf(" "), rawPreview.lastIndexOf("\n"));
+  const safeCutoff = lastBreak > limit * 0.65 ? lastBreak : limit;
+
+  return {
+    isTruncated: true,
+    text: `${rawPreview.slice(0, safeCutoff).trimEnd()}…`
+  };
+};
+
 export const BookDetailScreen = ({
   viewerId,
   book,
@@ -97,7 +119,6 @@ export const BookDetailScreen = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFullSynopsis, setShowFullSynopsis] = useState(false);
-  const [isSynopsisExpandable, setIsSynopsisExpandable] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
@@ -124,13 +145,16 @@ export const BookDetailScreen = ({
 
   useEffect(() => {
     setShowFullSynopsis(false);
-    setIsSynopsisExpandable(false);
   }, [book.googleId]);
 
   const heroMeta = useMemo(() => buildHeroMeta(detail), [detail]);
   const summaryBook = detail?.book ?? book;
   const overviewSimilar = detail?.similarBooks.slice(0, 6) ?? [];
-  const synopsis = detail?.book.description?.trim() || "Sem sinopse disponível para esta edição.";
+  const synopsis =
+    detail?.book.description?.trim() || "Sem sinopse disponível para esta edição.";
+  const synopsisPreview = buildSynopsisPreview(synopsis);
+  const synopsisText =
+    showFullSynopsis || !synopsisPreview.isTruncated ? synopsis : synopsisPreview.text;
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -174,7 +198,9 @@ export const BookDetailScreen = ({
           ) : null}
 
           {summaryBook.categories.length ? (
-            <Text style={styles.categoryText}>{summaryBook.categories.slice(0, 3).join(" / ")}</Text>
+            <Text style={styles.categoryText}>
+              {summaryBook.categories.slice(0, 3).join(" / ")}
+            </Text>
           ) : null}
 
           <View style={styles.ctaRow}>
@@ -199,20 +225,12 @@ export const BookDetailScreen = ({
         <>
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>Sinopse</Text>
-            <Text
-              style={styles.bodyText}
-              numberOfLines={showFullSynopsis ? undefined : 3}
-              onTextLayout={(event) => {
-                if (!showFullSynopsis) {
-                  setIsSynopsisExpandable(event.nativeEvent.lines.length > 3);
-                }
-              }}
-            >
-              {synopsis}
-            </Text>
-            {isSynopsisExpandable ? (
+            <Text style={styles.bodyText}>{synopsisText}</Text>
+            {synopsisPreview.isTruncated ? (
               <Pressable onPress={() => setShowFullSynopsis((current) => !current)}>
-                <Text style={styles.linkText}>{showFullSynopsis ? "Ver menos" : "Ver mais"}</Text>
+                <Text style={styles.synopsisLinkText}>
+                  {showFullSynopsis ? "Mostrar menos" : "Ler mais..."}
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -385,43 +403,44 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 16,
-    padding: 18
+    gap: 14,
+    padding: 16
   },
   cover: {
     borderRadius: 22,
-    height: 250,
-    width: 164
+    height: 224,
+    width: 148
   },
   heroCopy: {
     flex: 1,
-    gap: 16
+    gap: 14
   },
   heroStats: {
     flexDirection: "row",
-    gap: 12,
-    minHeight: 84
+    gap: 8
   },
   statChip: {
     backgroundColor: COLORS.field,
     borderColor: COLORS.border,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     flex: 1,
-    justifyContent: "space-between",
-    minHeight: 84,
-    paddingHorizontal: 12,
-    paddingVertical: 14
+    minWidth: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 12
   },
   statValue: {
     color: COLORS.text,
-    fontSize: 20,
-    fontWeight: "900"
+    fontSize: 18,
+    fontWeight: "900",
+    textAlign: "center"
   },
   statLabel: {
     color: COLORS.textMuted,
-    fontSize: 11,
-    marginTop: 4
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: "center",
+    textTransform: "uppercase"
   },
   metaRow: {
     flexDirection: "row",
@@ -546,6 +565,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
+  },
+  synopsisLinkText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: "800"
   },
   similarRow: {
     gap: 12,

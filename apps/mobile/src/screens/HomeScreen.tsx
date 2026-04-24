@@ -145,8 +145,8 @@ const BookRail = ({
 );
 
 export const HomeScreen = ({
+  currentStreak,
   viewerId,
-  viewerUsername,
   onRequestDiscover,
   onRequestActivity,
   onRequestProfile,
@@ -154,8 +154,8 @@ export const HomeScreen = ({
   onOpenFeedBook,
   refreshKey
 }: {
+  currentStreak: number;
   viewerId: string;
-  viewerUsername: string;
   onRequestDiscover: () => void;
   onRequestActivity: () => void;
   onRequestProfile: () => void;
@@ -219,7 +219,15 @@ export const HomeScreen = ({
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <SectionHeader eyebrow={t("home:eyebrow")} title={t("home:title", { username: viewerUsername })} />
+      <View style={styles.topRow}>
+        <SectionHeader eyebrow={t("home:eyebrow")} title="Em alta agora" />
+        {currentStreak > 0 ? (
+          <View style={styles.streakBadge}>
+            <View style={styles.streakDot} />
+            <Text style={styles.streakBadgeText}>{currentStreak}d</Text>
+          </View>
+        ) : null}
+      </View>
 
       <DailyVerse verse={dailyVerse} onShare={() => {}} />
 
@@ -349,6 +357,32 @@ const styles = StyleSheet.create({
   container: {
     gap: 22,
     paddingBottom: 28
+  },
+  topRow: {
+    gap: 10
+  },
+  streakBadge: {
+    alignItems: "center",
+    alignSelf: "flex-end",
+    backgroundColor: "rgba(22, 26, 36, 0.78)",
+    borderColor: COLORS.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5
+  },
+  streakDot: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 999,
+    height: 6,
+    width: 6
+  },
+  streakBadgeText: {
+    color: COLORS.textSoft,
+    fontSize: 11,
+    fontWeight: "800"
   },
   loadingCard: {
     alignItems: "center",

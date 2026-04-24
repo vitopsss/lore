@@ -25,6 +25,7 @@ const statusLabelMap: Record<string, string> = {
 };
 
 export const ProfileScreen = ({
+  currentStreak,
   viewerId,
   viewerPremium,
   viewerUsername,
@@ -33,6 +34,7 @@ export const ProfileScreen = ({
   onOpenBook,
   refreshKey
 }: {
+  currentStreak: number;
   viewerId: string;
   viewerPremium: boolean;
   viewerUsername: string;
@@ -79,7 +81,9 @@ export const ProfileScreen = ({
   const viewerInitial = viewerUsername.charAt(0).toUpperCase();
   const diaryEntries = selfFeed.filter((item) => item.type !== "quero_ler");
   const watchlistEntries = selfFeed.filter((item) => item.type === "quero_ler");
-  const listEntries = Object.entries(stats?.statuses ?? {}).sort((left, right) => right[1] - left[1]);
+  const listEntries = Object.entries(stats?.statuses ?? {}).sort(
+    (left, right) => right[1] - left[1]
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -95,6 +99,13 @@ export const ProfileScreen = ({
           <Text style={styles.profileMeta}>
             {viewerPremium ? "Membro do Clube" : "Plano Básico"}
           </Text>
+          <View style={styles.metaRow}>
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>
+                {currentStreak > 0 ? `${currentStreak} dias de ofensiva` : "Sem ofensiva ativa"}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -301,6 +312,23 @@ const styles = StyleSheet.create({
   profileCopy: {
     flex: 1,
     gap: 4
+  },
+  metaRow: {
+    flexDirection: "row",
+    marginTop: 6
+  },
+  metaChip: {
+    backgroundColor: COLORS.backgroundRaised,
+    borderColor: COLORS.borderStrong,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6
+  },
+  metaChipText: {
+    color: COLORS.textSoft,
+    fontSize: 11,
+    fontWeight: "800"
   },
   profileName: {
     color: COLORS.text,
