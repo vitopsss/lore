@@ -1,6 +1,8 @@
 import type { Session, User } from "@supabase/supabase-js";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 import { loadCurrentUserProfile, setApiAccessTokenResolver } from "../api/client";
 import { HAS_SUPABASE_AUTH_CONFIG } from "../config";
@@ -35,6 +37,58 @@ const syncAccessToken = (session: Session | null) => {
   setApiAccessTokenResolver(() => session?.access_token ?? null);
 };
 
+const PROFILE_CACHE_KEY_PREFIX = "lore.auth.profile";
+
+const getCachedProfileKey = (userId: string) => `${PROFILE_CACHE_KEY_PREFIX}.${userId}`;
+
+const readCachedProfile = async (userId: string) => {
+  try {
+    const cacheKey = getCachedProfileKey(userId);
+    const cachedValue =
+      Platform.OS === "web"
+        ? globalThis.localStorage?.getItem(cacheKey) ?? null
+        : await SecureStore.getItemAsync(cacheKey);
+
+    if (!cachedValue) {
+      return null;
+    }
+
+    const cachedProfile = JSON.parse(cachedValue) as AppUser;
+    return cachedProfile.id === userId ? cachedProfile : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedProfile = async (nextProfile: AppUser) => {
+  try {
+    const cacheKey = getCachedProfileKey(nextProfile.id);
+    const serializedProfile = JSON.stringify(nextProfile);
+
+    if (Platform.OS === "web") {
+      globalThis.localStorage?.setItem(cacheKey, serializedProfile);
+      return;
+    }
+
+    await SecureStore.setItemAsync(cacheKey, serializedProfile, {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY
+    });
+  } catch {}
+};
+
+const clearCachedProfile = async (userId: string) => {
+  try {
+    const cacheKey = getCachedProfileKey(userId);
+
+    if (Platform.OS === "web") {
+      globalThis.localStorage?.removeItem(cacheKey);
+      return;
+    }
+
+    await SecureStore.deleteItemAsync(cacheKey);
+  } catch {}
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -48,7 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     syncAccessToken(nextSession);
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = async (options?: { preserveCurrentProfile?: boolean }) => {
     if (!supabase) {
       setProfile(null);
       return null;
@@ -58,9 +112,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const currentProfile = await loadCurrentUserProfile();
       setProfile(currentProfile);
       setError(null);
+      void writeCachedProfile(currentProfile);
       return currentProfile;
     } catch (nextError) {
-      setProfile(null);
+      if (!options?.preserveCurrentProfile) {
+        setProfile(null);
+      }
       setError(
         nextError instanceof Error
           ? nextError.message
@@ -96,12 +153,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       applySession(nextSession);
 
       if (nextSession) {
-        await refreshProfile();
+        setProfile((current) => (current?.id === nextSession.user.id ? current : null));
+
+        const cachedProfile = await readCachedProfile(nextSession.user.id);
+
+        if (!active) {
+          return;
+        }
+
+        if (cachedProfile) {
+          setProfile(cachedProfile);
+          setError(null);
+        }
+
+        setIsReady(true);
+        void refreshProfile({ preserveCurrentProfile: true });
       } else {
         setProfile(null);
-      }
-
-      if (active) {
         setIsReady(true);
       }
     };
@@ -114,7 +182,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       applySession(nextSession);
 
       if (nextSession) {
-        void refreshProfile();
+        setProfile((current) => (current?.id === nextSession.user.id ? current : null));
+
+        void (async () => {
+          const cachedProfile = await readCachedProfile(nextSession.user.id);
+
+          if (!active) {
+            return;
+          }
+
+          if (cachedProfile) {
+            setProfile(cachedProfile);
+            setError(null);
+          }
+
+          await refreshProfile({ preserveCurrentProfile: true });
+        })();
       } else {
         setProfile(null);
         setError(null);
@@ -144,7 +227,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     applySession(data.session);
-    await refreshProfile();
+    setProfile(null);
+    await refreshProfile({ preserveCurrentProfile: false });
   };
 
   const signUpWithPassword = async ({ email, password, username }: AuthCredentials) => {
@@ -171,7 +255,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     applySession(data.session ?? null);
 
     if (data.session) {
-      await refreshProfile();
+      setProfile(null);
+      await refreshProfile({ preserveCurrentProfile: false });
       return;
     }
 
@@ -179,9 +264,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    const currentUserId = authUser?.id;
+
     if (!supabase) {
       setProfile(null);
       syncAccessToken(null);
+      if (currentUserId) {
+        void clearCachedProfile(currentUserId);
+      }
       return;
     }
 
@@ -194,6 +284,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     applySession(null);
     setProfile(null);
     setError(null);
+    if (currentUserId) {
+      void clearCachedProfile(currentUserId);
+    }
   };
 
   const value = useMemo<AuthContextValue>(
@@ -209,7 +302,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signOut,
       signUpWithPassword
     }),
-    [authUser, error, isReady, profile, session]
+    [
+      authUser,
+      error,
+      isReady,
+      profile,
+      refreshProfile,
+      session,
+      signInWithPassword,
+      signOut,
+      signUpWithPassword
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

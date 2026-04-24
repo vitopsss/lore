@@ -223,7 +223,7 @@ export const HomeScreen = ({
         <SectionHeader eyebrow={t("home:eyebrow")} title="Em alta agora" />
         {currentStreak > 0 ? (
           <View style={styles.streakBadge}>
-            <View style={styles.streakDot} />
+            <Text style={styles.streakBadgeIcon}>{"\uD83D\uDD25"}</Text>
             <Text style={styles.streakBadgeText}>{currentStreak}d</Text>
           </View>
         ) : null}
@@ -373,11 +373,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5
   },
-  streakDot: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 999,
-    height: 6,
-    width: 6
+  streakBadgeIcon: {
+    fontSize: 12
   },
   streakBadgeText: {
     color: COLORS.textSoft,

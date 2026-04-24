@@ -41,14 +41,10 @@ const formatDate = (value: string | null) => {
 
 export const FeedScreen = ({
   viewerId,
-  viewerUsername,
-  viewerPremium,
   onRequestCreateEntry,
   onRequestProfile
 }: {
   viewerId: string;
-  viewerUsername: string;
-  viewerPremium: boolean;
   onRequestCreateEntry: () => void;
   onRequestProfile: () => void;
 }) => {
@@ -87,12 +83,11 @@ export const FeedScreen = ({
 
       <View style={styles.heroCard}>
         <View style={styles.heroCopy}>
-          <Text style={styles.heroEyebrow}>perfil ativo</Text>
-          <Text style={styles.heroTitle}>@{viewerUsername}</Text>
+          <Text style={styles.heroEyebrow}>mural</Text>
+          <Text style={styles.heroTitle}>Acompanhe o feed e publique sua prÃ³xima leitura</Text>
           <Text style={styles.heroText}>
-            {viewerPremium
-              ? "Clube ativo com analise e visuais extras liberados."
-              : "Plano basico pronto para registrar, publicar e acompanhar o mural."}
+            Use o mural para revisar atividade recente e abra o perfil quando quiser ver plano,
+            ofensiva e estatÃ­sticas.
           </Text>
         </View>
 

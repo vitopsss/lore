@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Image,
   Keyboard,
@@ -33,6 +33,7 @@ const previewUri = (card: ShareCardResult | null) =>
   card ? `data:image/png;base64,${card.base64}` : undefined;
 
 const ratingOptions = [1, 2, 3, 4, 5];
+const SEARCH_DEBOUNCE_MS = 500;
 
 const isValidReadDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
@@ -71,35 +72,87 @@ export const SearchScreen = ({
   const [searching, setSearching] = useState(false);
   const [submittingBookId, setSubmittingBookId] = useState<string | null>(null);
   const [shareCard, setShareCard] = useState<ShareCardResult | null>(null);
+  const hasTypedQueryRef = useRef(false);
+  const latestSearchIdRef = useRef(0);
 
   const activeTheme = CARD_THEMES.find((theme) => theme.key === selectedTheme);
   const activeThemeMeta = getCardThemeMeta(selectedTheme);
   const isFinishedLog = selectedStatus === "lido";
 
-  const handleSearch = async () => {
-    Keyboard.dismiss();
+  const runSearch = async (rawQuery: string, dismissKeyboard = false) => {
+    const normalizedQuery = rawQuery.trim();
+
+    if (!normalizedQuery) {
+      latestSearchIdRef.current += 1;
+      setResults([]);
+      setSelectedBook(null);
+      setSearching(false);
+      setFeedback(null);
+      setShareCard(null);
+      return;
+    }
+
+    const requestId = latestSearchIdRef.current + 1;
+    latestSearchIdRef.current = requestId;
+
+    if (dismissKeyboard) {
+      Keyboard.dismiss();
+    }
+
     setSearching(true);
     setFeedback(null);
     setShareCard(null);
 
     try {
-      const books = await searchBooks(query, viewerId);
-      setResults(books);
-      if (books.length > 0 && !selectedBook) {
-        setSelectedBook(books[0]);
+      const books = await searchBooks(normalizedQuery, viewerId);
+
+      if (requestId !== latestSearchIdRef.current) {
+        return;
       }
+
+      setResults(books);
+
+      setSelectedBook((current) => {
+        if (books.length === 0) {
+          return null;
+        }
+
+        return current && books.some((book) => book.googleId === current.googleId)
+          ? current
+          : books[0];
+      });
+
       if (books.length === 0) {
-        setSelectedBook(null);
         setFeedback("Nenhum livro apareceu nessa busca.");
       }
     } catch (error) {
+      if (requestId !== latestSearchIdRef.current) {
+        return;
+      }
+
       setFeedback(
         error instanceof Error ? error.message : "Nao foi possivel buscar livros agora."
       );
     } finally {
-      setSearching(false);
+      if (requestId === latestSearchIdRef.current) {
+        setSearching(false);
+      }
     }
   };
+
+  useEffect(() => {
+    if (!hasTypedQueryRef.current) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      void runSearch(query);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [query, viewerId]);
 
   const registerActivity = async () => {
     if (!selectedBook) {
@@ -163,14 +216,17 @@ export const SearchScreen = ({
         <View style={styles.searchRow}>
           <TextInput
             value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={handleSearch}
+            onChangeText={(value) => {
+              hasTypedQueryRef.current = true;
+              setQuery(value);
+            }}
+            onSubmitEditing={() => void runSearch(query, true)}
             placeholder="Titulo, autor ou ISBN"
             placeholderTextColor={COLORS.textMuted}
             returnKeyType="search"
             style={styles.searchInput}
           />
-          <Pressable style={styles.searchButton} onPress={handleSearch}>
+          <Pressable style={styles.searchButton} onPress={() => void runSearch(query, true)}>
             <Text style={styles.searchButtonText}>
               {searching ? "Buscando..." : "Buscar"}
             </Text>

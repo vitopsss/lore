@@ -112,7 +112,10 @@ const ensureSuccess = async (response: Response) => {
     throw new HttpError(
       502,
       "Falha ao consultar o catálogo do Google Books.",
-      "google_books_unavailable"
+      "google_books_unavailable",
+      {
+        status: response.status
+      }
     );
   }
 };
@@ -147,7 +150,7 @@ const getBookQualityScore = (book: BookInput) => {
   let score = 0;
 
   if (book.coverUrl) {
-    score += 80;
+    score += 100;
   }
 
   if (book.isbn) {
@@ -175,17 +178,17 @@ const getSearchScore = (book: BookInput, query: string) => {
   }
 
   if (normalizedTitle === normalizedQuery) {
-    score += 140;
+    score += 120;
   } else if (normalizedTitle.startsWith(normalizedQuery)) {
-    score += 90;
+    score += 70;
   } else if (normalizedTitle.includes(normalizedQuery)) {
-    score += 55;
+    score += 35;
   }
 
   if (normalizedAuthor === normalizedQuery) {
-    score += 130;
+    score += 150;
   } else if (normalizedAuthor.includes(normalizedQuery)) {
-    score += 80;
+    score += 90;
   }
 
   return score;
@@ -205,9 +208,24 @@ const rankAndDedupeBooks = (query: string, books: BookInput[]) => {
   });
 
   return [...uniqueBooks.values()]
-    .sort((left, right) => right.score - left.score)
+    .sort((left, right) => {
+      const leftHasCover = Boolean(left.book.coverUrl);
+      const rightHasCover = Boolean(right.book.coverUrl);
+
+      if (leftHasCover !== rightHasCover) {
+        return Number(rightHasCover) - Number(leftHasCover);
+      }
+
+      return right.score - left.score;
+    })
     .map((entry) => entry.book);
 };
+
+const curateSearchResults = (query: string, books: BookInput[]) =>
+  collapseExactTitleMatches(query, rankAndDedupeBooks(query, books)).slice(0, 12);
+
+const isGoogleBooksUnavailableError = (error: unknown) =>
+  error instanceof HttpError && error.code === "google_books_unavailable";
 
 const collapseExactTitleMatches = (query: string, books: BookInput[]) => {
   const normalizedQuery = normalizeToken(query);
@@ -427,21 +445,25 @@ export const searchGoogleBooks = async (
   query: string,
   filters: CatalogSearchFilters = {}
 ) => {
-  const googleBooks = await searchLiveGoogleBooks(query, filters);
-  const curatedGoogleBooks = collapseExactTitleMatches(
-    query,
-    rankAndDedupeBooks(query, googleBooks)
-  ).slice(0, 12);
+  try {
+    const curatedGoogleBooks = curateSearchResults(
+      query,
+      await searchLiveGoogleBooks(query, filters)
+    );
 
-  if (curatedGoogleBooks.length > 0) {
-    return curatedGoogleBooks;
+    if (curatedGoogleBooks.length > 0) {
+      return curatedGoogleBooks;
+    }
+  } catch (error) {
+    if (!isGoogleBooksUnavailableError(error)) {
+      throw error;
+    }
   }
 
-  const openLibraryBooks = await searchOpenLibraryBooks(query, filters);
-  const curatedOpenLibraryBooks = collapseExactTitleMatches(
+  const curatedOpenLibraryBooks = curateSearchResults(
     query,
-    rankAndDedupeBooks(query, openLibraryBooks)
-  ).slice(0, 12);
+    await searchOpenLibraryBooks(query, filters)
+  );
 
   if (curatedOpenLibraryBooks.length > 0) {
     return curatedOpenLibraryBooks;
@@ -469,15 +491,9 @@ export const searchCatalogBooks = async (
   let books: BookInput[];
 
   if (source === "google") {
-    books = collapseExactTitleMatches(
-      query,
-      rankAndDedupeBooks(query, await searchLiveGoogleBooks(query, filters))
-    ).slice(0, 12);
+    books = await searchGoogleBooks(query, filters);
   } else if (source === "open_library") {
-    books = collapseExactTitleMatches(
-      query,
-      rankAndDedupeBooks(query, await searchOpenLibraryBooks(query, filters))
-    ).slice(0, 12);
+    books = curateSearchResults(query, await searchOpenLibraryBooks(query, filters));
   } else {
     books = await searchGoogleBooks(query, filters);
   }

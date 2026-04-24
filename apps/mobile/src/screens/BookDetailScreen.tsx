@@ -417,6 +417,7 @@ const styles = StyleSheet.create({
   },
   heroStats: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8
   },
   statChip: {
@@ -424,14 +425,15 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 16,
     borderWidth: 1,
-    flex: 1,
-    minWidth: 0,
+    flexBasis: 72,
+    flexGrow: 1,
+    minWidth: 72,
     paddingHorizontal: 8,
-    paddingVertical: 12
+    paddingVertical: 8
   },
   statValue: {
     color: COLORS.text,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900",
     textAlign: "center"
   },

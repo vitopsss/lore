@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Pressable,
@@ -44,6 +44,7 @@ const releaseDecades = [
   { label: "1990s", startYear: 1990, endYear: 1999 },
   { label: "1980s", startYear: 1980, endYear: 1989 }
 ];
+const SEARCH_DEBOUNCE_MS = 500;
 
 const buildMetaLine = (book: BookSearchResult) => {
   const parts = [];
@@ -77,6 +78,8 @@ export const DiscoverScreen = ({
   const [previousView, setPreviousView] = useState<BrowseView>("home");
   const [selectedDecade, setSelectedDecade] = useState<(typeof releaseDecades)[number] | null>(null);
   const [taxonomyTab, setTaxonomyTab] = useState<TaxonomyKey>("genre");
+  const latestResultsRequestIdRef = useRef(0);
+  const hasTypedQueryRef = useRef(false);
   const preferredLanguage = getPreferredCatalogLanguage();
 
   useEffect(() => {
@@ -116,15 +119,21 @@ export const DiscoverScreen = ({
   }, [selectedDecade]);
 
   const openResults = async ({
+    dismissKeyboard = true,
     title,
     nextPreviousView,
     load
   }: {
+    dismissKeyboard?: boolean;
     title: string;
     nextPreviousView: BrowseView;
     load: () => Promise<BookSearchResult[]> | BookSearchResult[];
   }) => {
-    Keyboard.dismiss();
+    const requestId = latestResultsRequestIdRef.current + 1;
+    latestResultsRequestIdRef.current = requestId;
+    if (dismissKeyboard) {
+      Keyboard.dismiss();
+    }
     setLoading(true);
     setError(null);
     setResultsTitle(title);
@@ -133,8 +142,14 @@ export const DiscoverScreen = ({
 
     try {
       const payload = await load();
+      if (requestId !== latestResultsRequestIdRef.current) {
+        return;
+      }
       setResults(payload);
     } catch (caughtError) {
+      if (requestId !== latestResultsRequestIdRef.current) {
+        return;
+      }
       setResults([]);
       setError(
         caughtError instanceof Error
@@ -142,7 +157,9 @@ export const DiscoverScreen = ({
           : "Não foi possível carregar esta seleção."
       );
     } finally {
-      setLoading(false);
+      if (requestId === latestResultsRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -153,6 +170,41 @@ export const DiscoverScreen = ({
       load: () => searchBooks(query, viewerId)
     });
   };
+
+  useEffect(() => {
+    if (!hasTypedQueryRef.current) {
+      return;
+    }
+
+    const normalizedQuery = query.trim();
+
+    if (!normalizedQuery) {
+      latestResultsRequestIdRef.current += 1;
+      setResults([]);
+      setError(null);
+      setLoading(false);
+      setResultsTitle("Resultados");
+
+      if (view === "results" && previousView === "home") {
+        setView("home");
+      }
+
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      void openResults({
+        dismissKeyboard: false,
+        title: `Busca por "${normalizedQuery}"`,
+        nextPreviousView: "home",
+        load: () => searchBooks(normalizedQuery, viewerId)
+      });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [previousView, query, view, viewerId]);
 
   const openTaxonomyResults = async (key: TaxonomyKey, value: string, label: string) => {
     const filters: CatalogSearchFilters =
@@ -219,7 +271,10 @@ export const DiscoverScreen = ({
         <Text style={styles.blockEyebrow}>Buscar</Text>
         <TextInput
           value={query}
-          onChangeText={setQuery}
+          onChangeText={(value) => {
+            hasTypedQueryRef.current = true;
+            setQuery(value);
+          }}
           onSubmitEditing={() => void performTextSearch()}
           placeholder="Título, autor ou ISBN"
           placeholderTextColor={COLORS.textMuted}

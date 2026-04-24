@@ -160,6 +160,7 @@ const drawRatingRow = (context: Canvas2DContext, rating: number | null, accent: 
   const safeRating = Math.max(1, Math.min(5, rating));
   const spacing = 70;
   const startX = WIDTH / 2 - ((5 - 1) * spacing) / 2;
+  const ratingLabel = `${safeRating}/5`;
 
   for (let index = 0; index < 5; index += 1) {
     const cx = startX + index * spacing;
@@ -167,6 +168,10 @@ const drawRatingRow = (context: Canvas2DContext, rating: number | null, accent: 
     context.fillStyle = index < safeRating ? accent : "rgba(255, 255, 255, 0.18)";
     context.fill();
   }
+
+  context.fillStyle = "#f8f4ea";
+  context.font = "700 28px Arial";
+  context.fillText(ratingLabel, WIDTH / 2 - context.measureText(ratingLabel).width / 2, 1012);
 };
 
 const toExcerpt = (text?: string | null) => {
