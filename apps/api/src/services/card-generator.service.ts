@@ -346,7 +346,7 @@ const renderStoryCard = async (
 
   context.fillStyle = "rgba(255, 255, 255, 0.68)";
   context.font = "600 28px Arial";
-  const watermark = "Gerado no Book-Boxd";
+  const watermark = "Gerado no Lore";
   context.fillText(
     watermark,
     WIDTH / 2 - context.measureText(watermark).width / 2,
@@ -354,7 +354,7 @@ const renderStoryCard = async (
   );
 
   const buffer = Buffer.from(await canvas.encode("png"));
-  const fileName = `bookboxd-story-${sanitizeFileSegment(input.title)}.png`;
+  const fileName = `lore-story-${sanitizeFileSegment(input.title)}.png`;
 
   return {
     width: WIDTH,

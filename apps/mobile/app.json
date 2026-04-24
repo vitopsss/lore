@@ -1,14 +1,27 @@
 {
   "expo": {
-    "name": "Margem",
-    "slug": "book-boxd-brasil",
-    "scheme": "bookboxd",
+    "name": "Lore",
+    "slug": "lore",
+    "scheme": "lore",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
       "backgroundColor": "#0f1117"
     },
+    "ios": {
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ]
+    ],
     "assetBundlePatterns": [
       "**/*"
     ]

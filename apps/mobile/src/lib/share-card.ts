@@ -8,7 +8,7 @@ const createTempFileUri = (activityId: string) => {
     throw new Error("Não foi possível preparar o cache do app para compartilhar o card.");
   }
 
-  return `${FileSystem.cacheDirectory}bookboxd-share-${activityId}.png`;
+  return `${FileSystem.cacheDirectory}lore-share-${activityId}.png`;
 };
 
 export const shareActivityCard = async (activityId: string) => {

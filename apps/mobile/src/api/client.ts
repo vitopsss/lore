@@ -13,6 +13,10 @@ import type {
   StatsPayload
 } from "../types";
 
+type AccessTokenResolver = () => string | null | Promise<string | null>;
+
+let accessTokenResolver: AccessTokenResolver | null = null;
+
 const normalizeUser = (
   user: Partial<AppUser> & Pick<AppUser, "id" | "username" | "premiumStatus">
 ): AppUser => ({
@@ -25,6 +29,10 @@ const normalizeUser = (
   lastReadDate: user.lastReadDate ?? null
 });
 
+export const setApiAccessTokenResolver = (resolver: AccessTokenResolver | null) => {
+  accessTokenResolver = resolver;
+};
+
 const request = async <T>(
   path: string,
   viewerId?: string,
@@ -34,6 +42,12 @@ const request = async <T>(
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string> | undefined)
   };
+
+  const accessToken = accessTokenResolver ? await accessTokenResolver() : null;
+
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
 
   if (viewerId) {
     headers["x-user-id"] = viewerId;
@@ -134,6 +148,9 @@ export const searchBooks = (
 
 export const loadUsers = async () => (await request<AppUser[]>("/users")).map(normalizeUser);
 
+export const loadCurrentUserProfile = async () =>
+  normalizeUser(await request<AppUser>("/me"));
+
 export const createUser = (payload: { username: string }) =>
   request<AppUser>("/users", undefined, {
     method: "POST",
@@ -190,3 +207,19 @@ export const loadStats = (userId: string, viewerId: string, advanced: boolean) =
     `/stats/${userId}?mode=${advanced ? "advanced" : "basic"}`,
     viewerId
   );
+
+interface DailyVerse {
+  quote: string;
+  bookTitle: string;
+  author: string;
+}
+
+export const loadDailyVerse = () => request<DailyVerse>("/community/verse");
+
+interface PulseBook {
+  book: BookSearchResult;
+  readerCount: number;
+  latestReader: string;
+}
+
+export const loadNowReadingPulse = () => request<PulseBook[]>("/community/pulse");

@@ -1,6 +1,6 @@
 import type { CardThemeName } from "./types";
 
-export const BRAND_NAME = "MARGEM";
+export const BRAND_NAME = "Lore";
 
 export const COLORS = {
   background: "#0f1117",

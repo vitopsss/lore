@@ -9,14 +9,17 @@ begin
 end $$;
 
 create table if not exists users (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key,
   username citext not null unique,
+  email citext,
   bio text,
   avatar text,
   premium_status boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create unique index if not exists idx_users_email_unique on users (email) where email is not null;
 
 create table if not exists books (
   id uuid primary key default gen_random_uuid(),

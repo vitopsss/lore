@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { loadFeed, loadFeaturedBooks, loadStats } from "../api/client";
+import { loadDailyVerse, loadFeed, loadFeaturedBooks, loadNowReadingPulse, loadStats } from "../api/client";
 import { FeedEntryCard } from "../components/FeedEntryCard";
 import { SectionHeader } from "../components/SectionHeader";
 import { SubTabBar } from "../components/SubTabBar";
@@ -25,18 +25,62 @@ const shelfLabels: Record<string, string> = {
   abandonado: "Abandonados"
 };
 
+interface DailyVerseData {
+  quote: string;
+  bookTitle: string;
+  author: string;
+}
+
+interface PulseBook {
+  book: BookSearchResult;
+  readerCount: number;
+  latestReader: string;
+}
+
+const DailyVerse = ({
+  verse,
+  onShare
+}: {
+  verse: DailyVerseData | null;
+  onShare?: () => void;
+}) => {
+  if (!verse) {
+    return null;
+  }
+
+  return (
+    <View style={styles.verseCard}>
+      <View style={styles.verseHeader}>
+        <Text style={styles.verseEyebrow}>O Verso do Dia</Text>
+        <View style={styles.verseDivider} />
+      </View>
+      <Text style={styles.verseText}>"{verse.quote}"</Text>
+      <Text style={styles.verseSource}>
+        — {verse.bookTitle}, {verse.author}
+      </Text>
+      {onShare ? (
+        <Pressable onPress={onShare} style={styles.verseButton}>
+          <Text style={styles.verseButtonText}>Compartilhar Insight</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+};
+
 const BookRail = ({
   title,
   books,
   onPickBook,
   actionLabel,
-  onAction
+  onAction,
+  pulseBooks
 }: {
   title: string;
   books: BookSearchResult[];
   onPickBook: (book: BookSearchResult) => void;
   actionLabel?: string;
   onAction?: () => void;
+  pulseBooks?: PulseBook[];
 }) => (
   <View style={styles.railSection}>
     <View style={styles.sectionRow}>
@@ -53,30 +97,44 @@ const BookRail = ({
       contentContainerStyle={styles.popularRow}
       showsHorizontalScrollIndicator={false}
     >
-      {books.map((book) => (
-        <Pressable
-          key={book.googleId}
-          onPress={() => onPickBook(book)}
-          style={styles.popularCard}
-        >
-          {book.coverUrl ? (
-            <Image source={{ uri: book.coverUrl }} style={styles.popularCover} />
-          ) : (
-            <View style={[styles.popularCover, styles.coverFallback]}>
-              <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-            </View>
-          )}
-          <Text style={styles.popularTitle} numberOfLines={2}>
-            {book.title}
-          </Text>
-          <Text style={styles.popularAuthor} numberOfLines={1}>
-            {book.author}
-          </Text>
-          <Text style={styles.popularMeta} numberOfLines={2}>
-            {book.categories.slice(0, 2).join(" / ") || "Abrir livro"}
-          </Text>
-        </Pressable>
-      ))}
+      {books.map((book, index) => {
+        const pulseData = pulseBooks?.[index];
+        const readerCount = pulseData?.readerCount ?? 0;
+
+        return (
+          <Pressable
+            key={book.googleId}
+            onPress={() => onPickBook(book)}
+            style={styles.popularCard}
+          >
+            {book.coverUrl ? (
+              <View style={styles.coverWrapper}>
+                <Image source={{ uri: book.coverUrl }} style={styles.popularCover} />
+                {readerCount > 0 && (
+                  <View style={styles.pulseBadge}>
+                    <Text style={styles.pulseBadgeText}>
+                      {readerCount} {readerCount === 1 ? "pessoa" : "pessoas"} lendo agora
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={[styles.popularCover, styles.coverFallback]}>
+                <Text style={styles.coverFallbackText}>SEM CAPA</Text>
+              </View>
+            )}
+            <Text style={styles.popularTitle} numberOfLines={2}>
+              {book.title}
+            </Text>
+            <Text style={styles.popularAuthor} numberOfLines={1}>
+              {book.author}
+            </Text>
+            <Text style={styles.popularMeta} numberOfLines={2}>
+              {book.categories.slice(0, 2).join(" / ") || "Abrir livro"}
+            </Text>
+          </Pressable>
+        );
+      })}
     </ScrollView>
   </View>
 );
@@ -101,7 +159,9 @@ export const HomeScreen = ({
   refreshKey: number;
 }) => {
   const [activeTab, setActiveTab] = useState<HomeTab>("popular");
+  const [dailyVerse, setDailyVerse] = useState<DailyVerseData | null>(null);
   const [popularBooks, setPopularBooks] = useState<BookSearchResult[]>([]);
+  const [pulseBooks, setPulseBooks] = useState<PulseBook[]>([]);
   const [communityFeed, setCommunityFeed] = useState<FeedItem[]>([]);
   const [selfFeed, setSelfFeed] = useState<FeedItem[]>([]);
   const [stats, setStats] = useState<StatsPayload | null>(null);
@@ -113,15 +173,19 @@ export const HomeScreen = ({
     setLoading(true);
     setError(null);
 
-    const [popularResult, communityResult, selfResult, statsResult] =
+    const [verseResult, popularResult, pulseResult, communityResult, selfResult, statsResult] =
       await Promise.allSettled([
+        loadDailyVerse(),
         loadFeaturedBooks(viewerId, preferredLanguage, "popular"),
+        loadNowReadingPulse(),
         loadFeed(viewerId, "community"),
         loadFeed(viewerId, "self"),
         loadStats(viewerId, viewerId, false)
       ]);
 
+    setDailyVerse(verseResult.status === "fulfilled" ? verseResult.value : null);
     setPopularBooks(popularResult.status === "fulfilled" ? popularResult.value.slice(0, 12) : []);
+    setPulseBooks(pulseResult.status === "fulfilled" ? pulseResult.value : []);
     setCommunityFeed(communityResult.status === "fulfilled" ? communityResult.value : []);
     setSelfFeed(selfResult.status === "fulfilled" ? selfResult.value : []);
     setStats(statsResult.status === "fulfilled" ? statsResult.value : null);
@@ -150,6 +214,8 @@ export const HomeScreen = ({
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <SectionHeader eyebrow="Home" title={`Em alta para @${viewerUsername}`} />
 
+      <DailyVerse verse={dailyVerse} onShare={() => {}} />
+
       <SubTabBar options={homeTabs} value={activeTab} onChange={setActiveTab} />
 
       {loading ? <Text style={styles.loadingText}>Montando a home...</Text> : null}
@@ -166,6 +232,7 @@ export const HomeScreen = ({
           onPickBook={onPickBook}
           actionLabel="browse"
           onAction={onRequestDiscover}
+          pulseBooks={pulseBooks}
         />
       ) : null}
 
@@ -284,6 +351,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20
   },
+  verseCard: {
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.borderStrong,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 20
+  },
+  verseHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 14
+  },
+  verseEyebrow: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase"
+  },
+  verseDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border
+  },
+  verseText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "600",
+    fontStyle: "italic",
+    lineHeight: 24,
+    marginBottom: 10
+  },
+  verseSource: {
+    color: COLORS.textSoft,
+    fontSize: 13,
+    fontWeight: "500"
+  },
+  verseButton: {
+    alignSelf: "flex-start",
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.panelMuted,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  verseButtonText: {
+    color: COLORS.textSoft,
+    fontSize: 12,
+    fontWeight: "700"
+  },
   railSection: {
     gap: 12
   },
@@ -316,10 +436,31 @@ const styles = StyleSheet.create({
     padding: 14,
     width: 178
   },
+  coverWrapper: {
+    position: "relative"
+  },
   popularCover: {
     borderRadius: 18,
     height: 220,
     width: "100%"
+  },
+  pulseBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    right: 8,
+    backgroundColor: "rgba(15, 17, 23, 0.92)",
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: COLORS.borderStrong
+  },
+  pulseBadgeText: {
+    color: COLORS.accent,
+    fontSize: 10,
+    fontWeight: "800",
+    textAlign: "center"
   },
   coverFallback: {
     alignItems: "center",

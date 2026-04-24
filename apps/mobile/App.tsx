@@ -1,3 +1,5 @@
+import "react-native-url-polyfill/auto";
+
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -13,6 +15,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 
 import { createUser, loadUsers } from "./src/api/client";
+import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { BookDetailScreen } from "./src/screens/BookDetailScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
@@ -52,7 +55,8 @@ const feedItemToBook = (item: FeedItem): BookSearchResult => ({
   amazonAffiliateLink: item.amazonAffiliateLink
 });
 
-export default function App() {
+const AppShell = () => {
+  const { isReady: authReady, profile: authProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [users, setUsers] = useState<AppUser[]>([]);
   const [viewerId, setViewerId] = useState<string | null>(null);
@@ -87,6 +91,18 @@ export default function App() {
   useEffect(() => {
     void loadViewerOptions();
   }, []);
+
+  useEffect(() => {
+    if (!authProfile) {
+      return;
+    }
+
+    setUsers((current) => [
+      authProfile,
+      ...current.filter((user) => user.id !== authProfile.id)
+    ]);
+    setViewerId(authProfile.id);
+  }, [authProfile]);
 
   useEffect(() => {
     setComposerSeed(null);
@@ -259,7 +275,7 @@ export default function App() {
           </View>
         </View>
 
-        {loadingUsers ? (
+        {loadingUsers || !authReady ? (
           <View style={styles.bannerCard}>
             <Text style={styles.bannerTitle}>Abrindo app</Text>
           </View>
@@ -331,6 +347,14 @@ export default function App() {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }
 

@@ -14,6 +14,7 @@ import type {
 
 interface MemoryUser extends CurrentUser {
   bio: string | null;
+  email: string | null;
   avatar: string | null;
   createdAt: string;
   updatedAt: string;
@@ -77,6 +78,7 @@ const users: MemoryUser[] = [
     id: "00000000-0000-0000-0000-000000000001",
     username: "ana_estante",
     bio: "Leitora de romance historico, thrillers e clube do livro.",
+    email: null,
     avatar:
       "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80",
     premiumStatus: false,
@@ -88,7 +90,8 @@ const users: MemoryUser[] = [
   {
     id: "00000000-0000-0000-0000-000000000002",
     username: "rafa_atlas",
-    bio: "Não larga não ficção, ensaios e resenhas curtas.",
+    bio: "NÃ£o larga nÃ£o ficÃ§Ã£o, ensaios e resenhas curtas.",
+    email: null,
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
     premiumStatus: true,
@@ -180,9 +183,7 @@ export const memoryStore = {
           return 0;
         }
 
-        return (
-          new Date(rightUser.createdAt).getTime() - new Date(leftUser.createdAt).getTime()
-        );
+        return new Date(rightUser.createdAt).getTime() - new Date(leftUser.createdAt).getTime();
       });
   },
 
@@ -201,6 +202,41 @@ export const memoryStore = {
       id: randomUUID(),
       username: input.username.trim(),
       bio: input.bio?.trim() || null,
+      email: null,
+      avatar: input.avatar?.trim() || null,
+      premiumStatus: false,
+      currentStreak: 0,
+      lastReadDate: null,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+
+    users.unshift(user);
+
+    return mapUserSummary(user);
+  },
+
+  upsertAuthUser(input: {
+    id: string;
+    username: string;
+    email?: string | null;
+    avatar?: string | null;
+  }): UserSummary {
+    const existingUser = users.find((entry) => entry.id === input.id);
+    const timestamp = nowIso();
+
+    if (existingUser) {
+      existingUser.email = input.email?.trim().toLowerCase() || existingUser.email;
+      existingUser.avatar = input.avatar?.trim() || existingUser.avatar;
+      existingUser.updatedAt = timestamp;
+      return mapUserSummary(existingUser);
+    }
+
+    const user: MemoryUser = {
+      id: input.id,
+      username: input.username.trim(),
+      bio: null,
+      email: input.email?.trim().toLowerCase() || null,
       avatar: input.avatar?.trim() || null,
       premiumStatus: false,
       currentStreak: 0,
@@ -352,10 +388,7 @@ export const memoryStore = {
     return {
       communityAverageRating: ratedActivities.length
         ? Math.round(
-            (ratedActivities.reduce(
-              (total, activity) => total + (activity.rating ?? 0),
-              0
-            ) /
+            (ratedActivities.reduce((total, activity) => total + (activity.rating ?? 0), 0) /
               ratedActivities.length) *
               100
           ) / 100
@@ -465,10 +498,7 @@ export const memoryStore = {
       .map((activity) => books.find((book) => book.id === activity.bookId))
       .filter((book): book is StoredBook => Boolean(book));
 
-    const pagesRead = completedBooks.reduce(
-      (total, book) => total + (book.pageCount ?? 0),
-      0
-    );
+    const pagesRead = completedBooks.reduce((total, book) => total + (book.pageCount ?? 0), 0);
 
     const genreTotals = new Map<string, number>();
     completedBooks.forEach((book) => {
@@ -553,10 +583,7 @@ export const memoryStore = {
     response.advanced = {
       averageRating: ratedActivities.length
         ? Math.round(
-            (ratedActivities.reduce(
-              (total, activity) => total + (activity.rating ?? 0),
-              0
-            ) /
+            (ratedActivities.reduce((total, activity) => total + (activity.rating ?? 0), 0) /
               ratedActivities.length) *
               100
           ) / 100

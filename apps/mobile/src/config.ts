@@ -4,6 +4,14 @@ import { CARD_THEME_META } from "./theme";
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:3333";
 
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() || null;
+export const SUPABASE_PUBLISHABLE_KEY =
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || null;
+
+export const HAS_SUPABASE_AUTH_CONFIG = Boolean(
+  SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
+);
+
 export const CARD_THEMES: Array<{
   key: CardThemeName;
   label: string;

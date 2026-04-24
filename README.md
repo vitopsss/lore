@@ -1,6 +1,6 @@
-# Projeto Margem
+# Projeto Lore
 
-Base para um app mobile em Expo + backend Node.js/TypeScript focado em catalogo social de leitura no Brasil, com identidade visual propria.
+Base para um app mobile em Expo + backend Node.js/TypeScript focado em catalogo social de leitura no Brasil, com identidade visual propria do Lore.
 
 ## Stack
 

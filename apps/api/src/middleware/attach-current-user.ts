@@ -1,9 +1,31 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { env } from "../config/env";
 import { HttpError } from "../lib/http-error";
-import { findUserById } from "../services/user.service";
+import { verifySupabaseAccessToken } from "../lib/supabase-auth";
+import { findUserById, upsertUserFromAuth } from "../services/user.service";
 
-const extractUserId = (request: Request) => {
+const extractBearerToken = (request: Request) => {
+  const authorizationHeader = request.header("authorization");
+
+  if (!authorizationHeader) {
+    return undefined;
+  }
+
+  const [scheme, token] = authorizationHeader.trim().split(/\s+/, 2);
+
+  if (!scheme || scheme.toLowerCase() !== "bearer" || !token) {
+    throw new HttpError(
+      401,
+      "Use o header `Authorization: Bearer <token>`.",
+      "invalid_authorization_header"
+    );
+  }
+
+  return token;
+};
+
+const extractLegacyUserId = (request: Request) => {
   const headerUserId = request.header("x-user-id");
   if (headerUserId) {
     return headerUserId;
@@ -30,7 +52,22 @@ export const attachCurrentUser = async (
   _response: Response,
   next: NextFunction
 ) => {
-  const userId = extractUserId(request);
+  const bearerToken = extractBearerToken(request);
+
+  if (bearerToken) {
+    request.currentUser = await upsertUserFromAuth(
+      await verifySupabaseAccessToken(bearerToken)
+    );
+    next();
+    return;
+  }
+
+  if (!env.ALLOW_LEGACY_DEV_AUTH) {
+    next();
+    return;
+  }
+
+  const userId = extractLegacyUserId(request);
 
   if (!userId) {
     next();

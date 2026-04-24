@@ -11,18 +11,18 @@ const assertPremium = (
   featureName: string
 ) => {
   if (!request.currentUser) {
-    next(new HttpError(401, "Envie `x-user-id` para acessar recursos premium.", "unauthorized"));
+    next(
+      new HttpError(
+        401,
+        "Autentique-se com um token Bearer válido para acessar recursos premium.",
+        "unauthorized"
+      )
+    );
     return;
   }
 
   if (!request.currentUser.premiumStatus) {
-    next(
-      new HttpError(
-        403,
-        `${featureName} exige assinatura premium.`,
-        "premium_required"
-      )
-    );
+    next(new HttpError(403, `${featureName} exige assinatura premium.`, "premium_required"));
     return;
   }
 

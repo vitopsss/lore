@@ -1,11 +1,12 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
+import { HttpError } from "../lib/http-error";
 import { registerActivity } from "../services/activity.service";
 
 const activitySchema = z
   .object({
-    userId: z.string().uuid(),
+    userId: z.string().uuid().optional(),
     type: z.enum(["lendo", "lido", "abandonado", "quero_ler"]),
     rating: z.number().int().min(1).max(5).nullable().optional(),
     reviewText: z.string().trim().max(4000).nullable().optional(),
@@ -33,7 +34,20 @@ const activitySchema = z
 
 export const activityController = async (request: Request, response: Response) => {
   const payload = activitySchema.parse(request.body);
-  const result = await registerActivity(payload);
+  const userId = request.currentUser?.id ?? payload.userId;
+
+  if (!userId) {
+    throw new HttpError(
+      401,
+      "Autentique-se com um token Bearer válido para publicar uma atividade.",
+      "unauthorized"
+    );
+  }
+
+  const result = await registerActivity({
+    ...payload,
+    userId
+  });
 
   response.status(201).json({
     data: result
