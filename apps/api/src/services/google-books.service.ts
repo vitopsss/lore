@@ -62,8 +62,95 @@ interface LocalizedVolumeLookup {
   author: string;
 }
 
+type SupportedCatalogLocale = "pt" | "en";
+
 const SEARCH_CACHE_TTL_MS = 1000 * 60 * 10;
 const searchCache = new Map<string, SearchCacheEntry>();
+const FEATURED_QUERIES: Record<SupportedCatalogLocale, Record<FeaturedBooksMode, string[]>> = {
+  en: {
+    anticipated: [
+      "subject:fiction",
+      "subject:fantasy",
+      "subject:young adult",
+      "subject:science fiction",
+      "subject:romance",
+      "subject:bestsellers"
+    ],
+    popular: [
+      "subject:fiction",
+      "subject:romance",
+      "subject:fantasy",
+      "subject:thriller",
+      "subject:mystery",
+      "subject:young adult",
+      "subject:bestsellers"
+    ]
+  },
+  pt: {
+    anticipated: [
+      "subject:ficcao",
+      "subject:fantasia",
+      "subject:romance",
+      "subject:ficcao cientifica",
+      "subject:juvenil",
+      "subject:bestsellers"
+    ],
+    popular: [
+      "subject:ficcao",
+      "subject:romance",
+      "subject:fantasia",
+      "subject:suspense",
+      "subject:misterio",
+      "subject:classicos",
+      "subject:bestsellers"
+    ]
+  }
+};
+
+const normalizeLocale = (value?: string | null): SupportedCatalogLocale =>
+  normalizeCatalogLanguage(value ?? undefined) === "en" ? "en" : "pt";
+
+const buildLocalizedCatalogQuery = (query: string, filters: CatalogSearchFilters) => {
+  const baseQuery = buildCatalogSearchQuery(query, filters);
+  const locale = normalizeLocale(filters.language);
+
+  if (!query.trim() || filters.country?.trim()) {
+    return baseQuery;
+  }
+
+  const localeHint = locale === "pt" ? "Brasil" : "English";
+  return `${baseQuery} ${localeHint}`.trim();
+};
+
+const getLocalePreferenceScore = (book: BookInput, language?: string | null) => {
+  const locale = normalizeLocale(language);
+  const normalizedBookLanguage = normalizeCatalogLanguage(book.language ?? undefined);
+  let score = 0;
+
+  if (normalizedBookLanguage === locale) {
+    score += 28;
+  }
+
+  if (locale === "pt") {
+    const normalizedPublisher = normalizeToken(book.publisher ?? "");
+
+    if (normalizedPublisher.includes("brasil")) {
+      score += 20;
+    }
+  }
+
+  return score;
+};
+
+const mergeLocalizedBookVariant = (baseBook: BookInput, localizedVolume: GoogleBookVolume) => {
+  const localizedBook = mapVolumeToBook(localizedVolume);
+
+  return {
+    ...baseBook,
+    ...localizedBook,
+    googleId: baseBook.googleId
+  };
+};
 
 const normalizeCoverUrl = (coverUrl?: string | null) => {
   if (!coverUrl) {
@@ -103,6 +190,8 @@ const mapVolumeToBook = (volume: GoogleBookVolume): BookInput => {
     isbn,
     pageCount: volume.volumeInfo.pageCount ?? null,
     categories: volume.volumeInfo.categories ?? [],
+    language: volume.volumeInfo.language ?? null,
+    publisher: volume.volumeInfo.publisher ?? null,
     amazonAffiliateLink: buildAmazonAffiliateLink(isbn)
   };
 };
@@ -166,12 +255,13 @@ const getBookQualityScore = (book: BookInput) => {
   return score;
 };
 
-const getSearchScore = (book: BookInput, query: string) => {
+const getSearchScore = (book: BookInput, query: string, language?: string | null) => {
   const normalizedQuery = normalizeToken(query);
   const normalizedTitle = normalizeToken(book.title);
   const normalizedAuthor = normalizeAuthor(book.author);
 
   let score = getBookQualityScore(book);
+  score += getLocalePreferenceScore(book, language);
 
   if (!normalizedQuery) {
     return score;
@@ -194,12 +284,12 @@ const getSearchScore = (book: BookInput, query: string) => {
   return score;
 };
 
-const rankAndDedupeBooks = (query: string, books: BookInput[]) => {
+const rankAndDedupeBooks = (query: string, books: BookInput[], language?: string | null) => {
   const uniqueBooks = new Map<string, { book: BookInput; score: number }>();
 
   books.forEach((book) => {
     const key = normalizeBookFingerprint(book);
-    const score = getSearchScore(book, query);
+    const score = getSearchScore(book, query, language);
     const current = uniqueBooks.get(key);
 
     if (!current || score > current.score) {
@@ -221,8 +311,8 @@ const rankAndDedupeBooks = (query: string, books: BookInput[]) => {
     .map((entry) => entry.book);
 };
 
-const curateSearchResults = (query: string, books: BookInput[]) =>
-  collapseExactTitleMatches(query, rankAndDedupeBooks(query, books)).slice(0, 12);
+const curateSearchResults = (query: string, books: BookInput[], language?: string | null) =>
+  collapseExactTitleMatches(query, rankAndDedupeBooks(query, books, language)).slice(0, 12);
 
 const isGoogleBooksUnavailableError = (error: unknown) =>
   error instanceof HttpError && error.code === "google_books_unavailable";
@@ -364,7 +454,7 @@ const fetchGoogleVolumeDocuments = async ({
   const requestUrl = new URL(`${env.GOOGLE_BOOKS_BASE_URL}/volumes`);
   const normalizedLanguage = normalizeCatalogLanguage(filters.language);
 
-  requestUrl.searchParams.set("q", buildCatalogSearchQuery(query, filters));
+  requestUrl.searchParams.set("q", buildLocalizedCatalogQuery(query, filters));
   if (normalizedLanguage) {
     requestUrl.searchParams.set("langRestrict", normalizedLanguage);
   }
@@ -448,7 +538,8 @@ export const searchGoogleBooks = async (
   try {
     const curatedGoogleBooks = curateSearchResults(
       query,
-      await searchLiveGoogleBooks(query, filters)
+      await searchLiveGoogleBooks(query, filters),
+      filters.language
     );
 
     if (curatedGoogleBooks.length > 0) {
@@ -462,7 +553,8 @@ export const searchGoogleBooks = async (
 
   const curatedOpenLibraryBooks = curateSearchResults(
     query,
-    await searchOpenLibraryBooks(query, filters)
+    await searchOpenLibraryBooks(query, filters),
+    filters.language
   );
 
   if (curatedOpenLibraryBooks.length > 0) {
@@ -493,7 +585,7 @@ export const searchCatalogBooks = async (
   if (source === "google") {
     books = await searchGoogleBooks(query, filters);
   } else if (source === "open_library") {
-    books = curateSearchResults(query, await searchOpenLibraryBooks(query, filters));
+    books = curateSearchResults(query, await searchOpenLibraryBooks(query, filters), filters.language);
   } else {
     books = await searchGoogleBooks(query, filters);
   }
@@ -508,33 +600,18 @@ export const getFeaturedBooks = async (
   language = "pt",
   mode: FeaturedBooksMode = "popular"
 ) => {
-  const highlightQueries =
-    mode === "anticipated"
-      ? [
-          "subject:fiction",
-          "subject:fantasy",
-          "subject:young adult",
-          "subject:science fiction",
-          "subject:romance"
-        ]
-      : [
-          "subject:fiction",
-          "subject:romance",
-          "subject:fantasy",
-          "subject:thriller",
-          "subject:mystery",
-          "subject:young adult"
-        ];
+  const locale = normalizeLocale(language);
+  const highlightQueries = FEATURED_QUERIES[locale][mode];
 
   const results = await Promise.allSettled(
     highlightQueries.map((query) =>
       fetchGoogleVolumes({
         query,
         filters: {
-          language
+          language: locale
         },
         orderBy: "newest",
-        maxResults: 12
+        maxResults: 18
       })
     )
   );
@@ -543,10 +620,13 @@ export const getFeaturedBooks = async (
     result.status === "fulfilled" ? result.value : []
   );
 
-  return rankAndDedupeBooks("", books).slice(0, 16);
+  return rankAndDedupeBooks("", books, locale).slice(0, 12);
 };
 
-export const getGoogleBookById = async (googleId: string) => {
+export const getGoogleBookById = async (
+  googleId: string,
+  preferredLanguage?: string | null
+) => {
   if (googleId.startsWith("ol:")) {
     const openLibraryBook = await getOpenLibraryBookById(googleId);
 
@@ -566,7 +646,30 @@ export const getGoogleBookById = async (googleId: string) => {
     const response = await fetch(`${env.GOOGLE_BOOKS_BASE_URL}/volumes/${googleId}`);
     await ensureSuccess(response);
     const payload = (await response.json()) as GoogleBookVolume;
-    return mapVolumeToBook(payload);
+    const baseBook = mapVolumeToBook(payload);
+    const normalizedLanguage = normalizeCatalogLanguage(preferredLanguage ?? undefined);
+
+    if (!normalizedLanguage) {
+      return baseBook;
+    }
+
+    const volumeLanguage = payload.volumeInfo.language?.trim().toLowerCase() ?? "";
+
+    if (!volumeLanguage || volumeLanguage.startsWith(normalizedLanguage)) {
+      return baseBook;
+    }
+
+    const localizedVolume = await findLocalizedGoogleVolume(
+      {
+        googleId,
+        isbn: baseBook.isbn ?? null,
+        title: baseBook.title,
+        author: baseBook.author
+      },
+      normalizedLanguage
+    );
+
+    return localizedVolume ? mergeLocalizedBookVariant(baseBook, localizedVolume) : baseBook;
   } catch {
     if (env.ALLOW_DEMO_BOOK_FALLBACK) {
       const demoBook = findDemoBookByGoogleId(googleId);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   Keyboard,
@@ -9,8 +9,9 @@ import {
   TextInput,
   View
 } from "react-native";
+import { useTranslation } from "react-i18next";
 
-import { createActivity, searchBooks } from "../api/client";
+import { createActivity, searchBooks, updateActivity } from "../api/client";
 import { BookCover } from "../components/BookCover";
 import { SectionHeader } from "../components/SectionHeader";
 import { CARD_THEMES } from "../config";
@@ -21,15 +22,9 @@ import type {
   BookSearchResult,
   CardThemeName,
   ShareCardResult,
-  StreakSnapshot
+  StreakSnapshot,
+  ViewerBookActivity
 } from "../types";
-
-const statusButtonLabel: Record<ActivityType, string> = {
-  quero_ler: "Quero ler",
-  lendo: "Lendo",
-  lido: "Terminei",
-  abandonado: "Abandonei"
-};
 
 const ratingOptions = [1, 2, 3, 4, 5];
 
@@ -38,85 +33,122 @@ const previewUri = (card: ShareCardResult | null) =>
 
 const isValidReadDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
-const buildMetaLine = (book: BookSearchResult) => {
-  const parts = [];
+const buildMetaLine = (
+  book: BookSearchResult,
+  labels: {
+    noMetadata: string;
+    pages: (count: number) => string;
+  }
+) => {
+  const parts: string[] = [];
 
   if (book.pageCount) {
-    parts.push(`${book.pageCount} páginas`);
+    parts.push(labels.pages(book.pageCount));
   }
 
   if (book.categories[0]) {
     parts.push(book.categories[0]);
   }
 
-  return parts.join("  /  ") || "Sem metadados";
+  return parts.join("  /  ") || labels.noMetadata;
 };
 
 const starsText = (rating: number) =>
   `${"\u2605".repeat(rating)}${"\u2606".repeat(5 - rating)}`;
 
-const buildStreakMessage = (streak: StreakSnapshot) =>
-  streak.currentStreak === 1
-    ? "Ofensiva atual: 1 dia."
-    : `Ofensiva atual: ${streak.currentStreak} dias.`;
+const buildStreakMessage = (
+  streak: StreakSnapshot,
+  labels: {
+    single: string;
+    many: (count: number) => string;
+  }
+) =>
+  streak.currentStreak === 1 ? labels.single : labels.many(streak.currentStreak);
 
 export const PostScreen = ({
   viewerId,
   viewerPremium,
   initialBook,
+  initialActivity,
   onPostCreated,
   onRequestActivity
 }: {
   viewerId: string;
   viewerPremium: boolean;
   initialBook?: BookSearchResult | null;
+  initialActivity?: ViewerBookActivity | null;
   onPostCreated: (streak: StreakSnapshot) => void;
   onRequestActivity: () => void;
 }) => {
-  const [query, setQuery] = useState(initialBook?.title ?? "Dom Casmurro");
+  const { t } = useTranslation();
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [query, setQuery] = useState(initialBook?.title ?? "");
   const [results, setResults] = useState<BookSearchResult[]>(initialBook ? [initialBook] : []);
   const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(initialBook ?? null);
-  const [selectedTheme, setSelectedTheme] = useState<CardThemeName>("classic");
-  const [selectedStatus, setSelectedStatus] = useState<ActivityType>("lido");
-  const [selectedRating, setSelectedRating] = useState(4);
-  const [reviewText, setReviewText] = useState("");
-  const [showExcerptOnCard, setShowExcerptOnCard] = useState(true);
-  const [readAt, setReadAt] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedTheme, setSelectedTheme] = useState<CardThemeName>(
+    initialActivity?.cardTheme ?? "classic"
+  );
+  const [selectedStatus, setSelectedStatus] = useState<ActivityType>(
+    initialActivity?.type ?? "lido"
+  );
+  const [selectedRating, setSelectedRating] = useState(initialActivity?.rating ?? 4);
+  const [reviewText, setReviewText] = useState(initialActivity?.reviewText ?? "");
+  const [showExcerptOnCard, setShowExcerptOnCard] = useState(
+    initialActivity?.showExcerpt ?? true
+  );
+  const [readAt, setReadAt] = useState(initialActivity?.readAt?.slice(0, 10) ?? today);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [submittingBookId, setSubmittingBookId] = useState<string | null>(null);
   const [shareCard, setShareCard] = useState<ShareCardResult | null>(null);
-  const [shareActivityId, setShareActivityId] = useState<string | null>(null);
+  const [shareActivityId, setShareActivityId] = useState<string | null>(
+    initialActivity?.activityId ?? null
+  );
   const [streak, setStreak] = useState<StreakSnapshot | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(!initialBook);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(
+    initialActivity?.activityId ?? null
+  );
 
+  const isEditing = Boolean(editingActivityId);
   const activeTheme = CARD_THEMES.find((theme) => theme.key === selectedTheme);
   const activeThemeMeta = getCardThemeMeta(selectedTheme);
   const isFinishedLog = selectedStatus === "lido";
+  const statusButtonLabel: Record<ActivityType, string> = {
+    quero_ler: t("post.status.wantToRead"),
+    lendo: t("post.status.reading"),
+    lido: t("post.status.finished"),
+    abandonado: t("post.status.abandoned")
+  };
 
   useEffect(() => {
-    if (!initialBook) {
-      return;
-    }
+    const nextBook = initialBook ?? null;
+    const nextActivity = initialActivity ?? null;
 
-    setQuery(initialBook.title);
-    setSelectedBook(initialBook);
-    setShowSearchResults(false);
-    setResults((current) => {
-      if (current.some((book) => book.googleId === initialBook.googleId)) {
-        return current;
-      }
-
-      return [initialBook, ...current];
-    });
-  }, [initialBook]);
+    setQuery(nextBook?.title ?? "");
+    setResults(nextBook ? [nextBook] : []);
+    setSelectedBook(nextBook);
+    setSelectedTheme(nextActivity?.cardTheme ?? "classic");
+    setSelectedStatus(nextActivity?.type ?? "lido");
+    setSelectedRating(nextActivity?.rating ?? 4);
+    setReviewText(nextActivity?.reviewText ?? "");
+    setShowExcerptOnCard(nextActivity?.showExcerpt ?? true);
+    setReadAt(nextActivity?.readAt?.slice(0, 10) ?? today);
+    setShareActivityId(nextActivity?.activityId ?? null);
+    setEditingActivityId(nextActivity?.activityId ?? null);
+    setShowSearchResults(!nextBook);
+    setFeedback(null);
+    setShareCard(null);
+    setStreak(null);
+    setShareError(null);
+  }, [initialActivity?.activityId, initialBook?.googleId, today]);
 
   const resetShareState = () => {
     setFeedback(null);
     setShareCard(null);
-    setShareActivityId(null);
+    setShareActivityId(editingActivityId);
     setStreak(null);
     setShareError(null);
   };
@@ -133,7 +165,7 @@ export const PostScreen = ({
 
       if (books.length === 0) {
         setSelectedBook(null);
-        setFeedback("Nenhum livro apareceu nessa busca.");
+        setFeedback(t("post.errors.noResults"));
         return;
       }
 
@@ -141,17 +173,15 @@ export const PostScreen = ({
         current && books.some((book) => book.googleId === current.googleId) ? current : books[0]
       );
     } catch (error) {
-      setFeedback(
-        error instanceof Error ? error.message : "Não foi possível buscar livros agora."
-      );
+      setFeedback(error instanceof Error ? error.message : t("post.errors.searchFailed"));
     } finally {
       setSearching(false);
     }
   };
 
-  const registerActivity = async () => {
+  const submitActivity = async () => {
     if (!selectedBook) {
-      setFeedback("Escolha um livro antes de publicar no mural.");
+      setFeedback(t("post.errors.bookRequired"));
       return;
     }
 
@@ -161,7 +191,7 @@ export const PostScreen = ({
     Keyboard.dismiss();
 
     if (isFinishedLog && normalizedReadAt && !isValidReadDate(normalizedReadAt)) {
-      setFeedback("Use a data no formato YYYY-MM-DD ao registrar uma leitura concluida.");
+      setFeedback(t("post.errors.invalidDate"));
       return;
     }
 
@@ -170,7 +200,7 @@ export const PostScreen = ({
     setShareError(null);
 
     try {
-      const response = await createActivity(viewerId, {
+      const payload = {
         book: selectedBook,
         type: selectedStatus,
         rating: isFinishedLog ? selectedRating : null,
@@ -178,17 +208,21 @@ export const PostScreen = ({
         showExcerpt: showExcerptOnCard,
         reviewText: normalizedReview || undefined,
         readAt: isFinishedLog ? normalizedReadAt || undefined : undefined
-      });
+      };
 
+      const response =
+        isEditing && editingActivityId
+          ? await updateActivity(viewerId, editingActivityId, payload)
+          : await createActivity(viewerId, payload);
+
+      setEditingActivityId(response.activity.id);
       setShareCard(response.shareCard);
       setShareActivityId(response.activity.id);
       setStreak(response.streak);
-      setFeedback(`Leitura publicada. ${buildStreakMessage(response.streak)}`);
+      setFeedback(t(isEditing ? "post.feedback.updated" : "post.feedback.created"));
       onPostCreated(response.streak);
     } catch (error) {
-      setFeedback(
-        error instanceof Error ? error.message : "Não foi possível salvar a atividade."
-      );
+      setFeedback(error instanceof Error ? error.message : t("post.errors.saveFailed"));
     } finally {
       setSubmittingBookId(null);
     }
@@ -205,9 +239,7 @@ export const PostScreen = ({
     try {
       await shareActivityCard(shareActivityId);
     } catch (error) {
-      setShareError(
-        error instanceof Error ? error.message : "Não foi possível compartilhar o card."
-      );
+      setShareError(error instanceof Error ? error.message : t("post.errors.shareFailed"));
     } finally {
       setSharing(false);
     }
@@ -226,12 +258,15 @@ export const PostScreen = ({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <SectionHeader eyebrow="Postar" title="Avaliar livro" />
+      <SectionHeader
+        eyebrow={t("post.eyebrow")}
+        title={isEditing ? t("post.titleEdit") : t("post.titleCreate")}
+      />
 
       <View style={styles.stepCard}>
         <View style={styles.stepHeader}>
-          <Text style={styles.stepNumber}>Passo 1</Text>
-          <Text style={styles.stepTitle}>Escolha o livro</Text>
+          <Text style={styles.stepNumber}>{t("post.stepOne")}</Text>
+          <Text style={styles.stepTitle}>{t("post.pickBookTitle")}</Text>
         </View>
 
         <View style={styles.searchRow}>
@@ -239,13 +274,15 @@ export const PostScreen = ({
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={handleSearch}
-            placeholder="Título, autor ou ISBN"
+            placeholder={t("post.searchPlaceholder")}
             placeholderTextColor={COLORS.textMuted}
             returnKeyType="search"
             style={styles.searchInput}
           />
           <Pressable style={styles.searchButton} onPress={handleSearch}>
-            <Text style={styles.searchButtonText}>{searching ? "Buscando..." : "Buscar"}</Text>
+            <Text style={styles.searchButtonText}>
+              {searching ? t("post.searching") : t("post.searchAction")}
+            </Text>
           </Pressable>
         </View>
 
@@ -256,27 +293,32 @@ export const PostScreen = ({
             <View style={styles.selectedBookCopy}>
               <Text style={styles.selectedBookTitle}>{selectedBook.title}</Text>
               <Text style={styles.selectedBookAuthor}>{selectedBook.author}</Text>
-              <Text style={styles.selectedBookMeta}>{buildMetaLine(selectedBook)}</Text>
+              <Text style={styles.selectedBookMeta}>
+                {buildMetaLine(selectedBook, {
+                  noMetadata: t("post.noMetadata"),
+                  pages: (count) => t("post.pages", { count })
+                })}
+              </Text>
               <Pressable
                 style={styles.changeBookButton}
                 onPress={() => setShowSearchResults((current) => !current)}
               >
                 <Text style={styles.changeBookButtonText}>
-                  {showSearchResults ? "Esconder resultados" : "Trocar livro"}
+                  {showSearchResults ? t("post.hideResults") : t("post.changeBook")}
                 </Text>
               </Pressable>
             </View>
           </View>
         ) : (
-          <Text style={styles.helpText}>Busque um livro.</Text>
+          <Text style={styles.helpText}>{t("post.searchHelp")}</Text>
         )}
 
         {showSearchResults ? (
           <View style={styles.resultsBlock}>
             <Text style={styles.resultsLabel}>
               {results.length > 0
-                ? `${results.length} resultados para escolher`
-                : "Nenhum resultado carregado ainda"}
+                ? t("post.resultCount", { count: results.length })
+                : t("post.noResultsYet")}
             </Text>
 
             {results.map((book) => {
@@ -294,7 +336,12 @@ export const PostScreen = ({
                     <View style={styles.resultCopy}>
                       <Text style={styles.resultTitle}>{book.title}</Text>
                       <Text style={styles.resultAuthor}>{book.author}</Text>
-                      <Text style={styles.resultMeta}>{buildMetaLine(book)}</Text>
+                      <Text style={styles.resultMeta}>
+                        {buildMetaLine(book, {
+                          noMetadata: t("post.noMetadata"),
+                          pages: (count) => t("post.pages", { count })
+                        })}
+                      </Text>
                     </View>
                   </View>
                 </Pressable>
@@ -307,11 +354,13 @@ export const PostScreen = ({
       {selectedBook ? (
         <View style={styles.stepCard}>
           <View style={styles.stepHeader}>
-            <Text style={styles.stepNumber}>Passo 2</Text>
-            <Text style={styles.stepTitle}>Registre a leitura</Text>
+            <Text style={styles.stepNumber}>{t("post.stepTwo")}</Text>
+            <Text style={styles.stepTitle}>
+              {isEditing ? t("post.editActivityTitle") : t("post.recordActivityTitle")}
+            </Text>
           </View>
 
-          <Text style={styles.fieldLabel}>Status</Text>
+          <Text style={styles.fieldLabel}>{t("post.fields.status")}</Text>
           <View style={styles.segmentRow}>
             {(Object.keys(statusButtonLabel) as ActivityType[]).map((status) => {
               const active = status === selectedStatus;
@@ -332,7 +381,7 @@ export const PostScreen = ({
 
           {isFinishedLog ? (
             <>
-              <Text style={styles.fieldLabel}>Nota</Text>
+              <Text style={styles.fieldLabel}>{t("post.fields.rating")}</Text>
               <View style={styles.ratingRow}>
                 {ratingOptions.map((rating) => {
                   const active = rating === selectedRating;
@@ -353,13 +402,13 @@ export const PostScreen = ({
             </>
           ) : null}
 
-          <Text style={styles.fieldLabel}>Review</Text>
+          <Text style={styles.fieldLabel}>{t("post.fields.review")}</Text>
           <TextInput
             value={reviewText}
             onChangeText={setReviewText}
             multiline
             numberOfLines={4}
-            placeholder="Escreva sua impressao curta ou deixe sem review."
+            placeholder={t("post.reviewPlaceholder")}
             placeholderTextColor={COLORS.textMuted}
             style={styles.multilineInput}
           />
@@ -370,18 +419,16 @@ export const PostScreen = ({
           >
             <View style={[styles.toggleDot, showExcerptOnCard && styles.toggleDotActive]} />
             <View style={styles.toggleCopy}>
-              <Text style={styles.toggleTitle}>Mostrar trecho no card</Text>
+              <Text style={styles.toggleTitle}>{t("post.excerptTitle")}</Text>
               <Text style={styles.toggleText}>
-                {showExcerptOnCard
-                  ? "O bloco TRECHO vai aparecer no story."
-                  : "O story sai mais limpo, sem o bloco TRECHO."}
+                {showExcerptOnCard ? t("post.excerptOn") : t("post.excerptOff")}
               </Text>
             </View>
           </Pressable>
 
           {isFinishedLog ? (
             <>
-              <Text style={styles.fieldLabel}>Data</Text>
+              <Text style={styles.fieldLabel}>{t("post.fields.date")}</Text>
               <TextInput
                 value={readAt}
                 onChangeText={setReadAt}
@@ -394,7 +441,7 @@ export const PostScreen = ({
             </>
           ) : null}
 
-          <Text style={styles.fieldLabel}>Tema do card</Text>
+          <Text style={styles.fieldLabel}>{t("post.fields.theme")}</Text>
           <View style={styles.themeRow}>
             {CARD_THEMES.map((theme) => {
               const active = theme.key === selectedTheme;
@@ -418,18 +465,20 @@ export const PostScreen = ({
           </View>
 
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Resumo do post</Text>
-            <Text style={styles.summaryText}>Status: {statusButtonLabel[selectedStatus]}</Text>
+            <Text style={styles.summaryTitle}>{t("post.summaryTitle")}</Text>
             <Text style={styles.summaryText}>
-              Card: {activeThemeMeta.label}
-              {isFinishedLog ? `  /  Nota: ${selectedRating}/5` : ""}
+              {t("post.summaryStatus", { status: statusButtonLabel[selectedStatus] })}
+            </Text>
+            <Text style={styles.summaryText}>
+              {t("post.summaryCard", {
+                theme: activeThemeMeta.label,
+                rating: isFinishedLog ? `${selectedRating}/5` : t("post.summaryNoRating")
+              })}
             </Text>
           </View>
 
           {!viewerPremium && activeTheme?.premium ? (
-            <Text style={styles.warningText}>
-              Os temas premium continuam bloqueados para perfis basicos.
-            </Text>
+            <Text style={styles.warningText}>{t("post.premiumWarning")}</Text>
           ) : null}
 
           <Pressable
@@ -438,12 +487,14 @@ export const PostScreen = ({
               submittingBookId === selectedBook.googleId && styles.publishButtonDisabled
             ]}
             disabled={submittingBookId === selectedBook.googleId}
-            onPress={registerActivity}
+            onPress={submitActivity}
           >
             <Text style={styles.publishButtonText}>
               {submittingBookId === selectedBook.googleId
-                ? "Publicando..."
-                : "Salvar avaliação e publicar"}
+                ? t("post.saving")
+                : isEditing
+                  ? t("post.saveChanges")
+                  : t("post.publish")}
             </Text>
           </Pressable>
         </View>
@@ -452,18 +503,25 @@ export const PostScreen = ({
       {feedback ? (
         <View style={styles.feedbackCard}>
           <Text style={styles.feedbackText}>{feedback}</Text>
-          {streak ? <Text style={styles.feedbackSubtext}>{buildStreakMessage(streak)}</Text> : null}
+          {streak ? (
+            <Text style={styles.feedbackSubtext}>
+              {buildStreakMessage(streak, {
+                single: t("post.streak.single"),
+                many: (count) => t("post.streak.many", { count })
+              })}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
       {shareCard && shareActivityId ? (
         <View style={styles.stepCard}>
           <View style={styles.stepHeader}>
-            <Text style={styles.stepNumber}>Passo 3</Text>
-            <Text style={styles.stepTitle}>Compartilhe o card</Text>
+            <Text style={styles.stepNumber}>{t("post.stepThree")}</Text>
+            <Text style={styles.stepTitle}>{t("post.shareTitle")}</Text>
           </View>
 
-          <Text style={styles.helpText}>O card foi gerado e esta pronto para o share nativo.</Text>
+          <Text style={styles.helpText}>{t("post.shareHelp")}</Text>
 
           <View style={styles.shareActions}>
             <Pressable
@@ -472,11 +530,11 @@ export const PostScreen = ({
               onPress={() => void handleInstagramShare()}
             >
               <Text style={styles.storyButtonText}>
-                {sharing ? "Compartilhando..." : "Compartilhar no Instagram"}
+                {sharing ? t("post.sharing") : t("post.shareInstagram")}
               </Text>
             </Pressable>
             <Pressable style={styles.shareButton} onPress={onRequestActivity}>
-              <Text style={styles.shareButtonText}>Ver no mural</Text>
+              <Text style={styles.shareButtonText}>{t("post.viewActivity")}</Text>
             </Pressable>
           </View>
 
@@ -484,7 +542,7 @@ export const PostScreen = ({
 
           <View style={styles.previewPanel}>
             <View style={styles.previewHeader}>
-              <Text style={styles.previewTitle}>Preview do story</Text>
+              <Text style={styles.previewTitle}>{t("post.previewTitle")}</Text>
               <Text style={styles.previewHint}>1080 x 1920</Text>
             </View>
             <Image source={{ uri: previewUri(shareCard) }} style={styles.storyPreview} />

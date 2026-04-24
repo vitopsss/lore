@@ -8,6 +8,7 @@ import {
   TextInput,
   View
 } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { loadFeaturedBooks, searchBooks } from "../api/client";
 import { BookCover } from "../components/BookCover";
@@ -19,45 +20,32 @@ import type { BookSearchResult, CatalogSearchFilters } from "../types";
 
 type BrowseView = "home" | "release_decade" | "release_year" | "taxonomy" | "service" | "results";
 type TaxonomyKey = "genre" | "country" | "language";
+type ReleaseDecade = {
+  label: string;
+  startYear: number;
+  endYear: number;
+};
 
-const genreOptions = ["Romance", "Fantasia", "Thriller", "História", "Não ficção", "Clássicos"];
-const countryOptions = ["Brasil", "Estados Unidos", "Japão", "França", "Argentina", "Portugal"];
-const languageOptions = [
-  { label: "Português", value: "pt" },
-  { label: "English", value: "en" },
-  { label: "Español", value: "es" },
-  { label: "Français", value: "fr" }
-];
-const serviceOptions = [
-  { label: "Google Books", value: "google" },
-  { label: "Open Library", value: "open library" }
-];
-const taxonomyTabs: Array<{ key: TaxonomyKey; label: string }> = [
-  { key: "genre", label: "Genre" },
-  { key: "country", label: "Country" },
-  { key: "language", label: "Language" }
-];
-const releaseDecades = [
-  { label: "2020s", startYear: 2020, endYear: 2026 },
-  { label: "2010s", startYear: 2010, endYear: 2019 },
-  { label: "2000s", startYear: 2000, endYear: 2009 },
-  { label: "1990s", startYear: 1990, endYear: 1999 },
-  { label: "1980s", startYear: 1980, endYear: 1989 }
-];
 const SEARCH_DEBOUNCE_MS = 500;
 
-const buildMetaLine = (book: BookSearchResult) => {
-  const parts = [];
+const buildMetaLine = (
+  book: BookSearchResult,
+  labels: {
+    pages: (count: number) => string;
+    noMetadata: string;
+  }
+) => {
+  const parts: string[] = [];
 
   if (book.pageCount) {
-    parts.push(`${book.pageCount} páginas`);
+    parts.push(labels.pages(book.pageCount));
   }
 
   if (book.categories[0]) {
     parts.push(book.categories[0]);
   }
 
-  return parts.join("  /  ") || "Sem metadados";
+  return parts.join("  /  ") || labels.noMetadata;
 };
 
 export const DiscoverScreen = ({
@@ -67,6 +55,7 @@ export const DiscoverScreen = ({
   viewerId: string;
   onPickBook: (book: BookSearchResult) => void;
 }) => {
+  const { i18n, t } = useTranslation();
   const [query, setQuery] = useState("");
   const [view, setView] = useState<BrowseView>("home");
   const [results, setResults] = useState<BookSearchResult[]>([]);
@@ -74,13 +63,75 @@ export const DiscoverScreen = ({
   const [anticipatedBooks, setAnticipatedBooks] = useState<BookSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [resultsTitle, setResultsTitle] = useState("Resultados");
+  const [resultsTitle, setResultsTitle] = useState(t("discover.results"));
   const [previousView, setPreviousView] = useState<BrowseView>("home");
-  const [selectedDecade, setSelectedDecade] = useState<(typeof releaseDecades)[number] | null>(null);
+  const [selectedDecade, setSelectedDecade] = useState<ReleaseDecade | null>(null);
   const [taxonomyTab, setTaxonomyTab] = useState<TaxonomyKey>("genre");
   const latestResultsRequestIdRef = useRef(0);
   const hasTypedQueryRef = useRef(false);
   const preferredLanguage = getPreferredCatalogLanguage();
+
+  const genreOptions = useMemo(
+    () => [
+      t("discover.options.genre.romance"),
+      t("discover.options.genre.fantasy"),
+      t("discover.options.genre.thriller"),
+      t("discover.options.genre.history"),
+      t("discover.options.genre.nonFiction"),
+      t("discover.options.genre.classics")
+    ],
+    [t]
+  );
+
+  const countryOptions = useMemo(
+    () => [
+      t("discover.options.country.brazil"),
+      t("discover.options.country.unitedStates"),
+      t("discover.options.country.japan"),
+      t("discover.options.country.france"),
+      t("discover.options.country.argentina"),
+      t("discover.options.country.portugal")
+    ],
+    [t]
+  );
+
+  const languageOptions = useMemo(
+    () => [
+      { label: t("discover.options.language.portuguese"), value: "pt" },
+      { label: t("discover.options.language.english"), value: "en" },
+      { label: t("discover.options.language.spanish"), value: "es" },
+      { label: t("discover.options.language.french"), value: "fr" }
+    ],
+    [t]
+  );
+
+  const serviceOptions = useMemo(
+    () => [
+      { label: t("discover.options.service.googleBooks"), value: "google" },
+      { label: t("discover.options.service.openLibrary"), value: "open_library" }
+    ],
+    [t]
+  );
+
+  const taxonomyTabs = useMemo<Array<{ key: TaxonomyKey; label: string }>>(
+    () => [
+      { key: "genre", label: t("discover.taxonomy.genre") },
+      { key: "country", label: t("discover.taxonomy.country") },
+      { key: "language", label: t("discover.taxonomy.language") }
+    ],
+    [t]
+  );
+
+  const releaseDecades = useMemo<ReleaseDecade[]>(
+    () => [
+      { label: "2020s", startYear: 2020, endYear: 2026 },
+      { label: "2010s", startYear: 2010, endYear: 2019 },
+      { label: "2000s", startYear: 2000, endYear: 2009 },
+      { label: "1990s", startYear: 1990, endYear: 1999 },
+      { label: "1980s", startYear: 1980, endYear: 1989 }
+    ],
+    []
+  );
 
   useEffect(() => {
     const loadInitial = async () => {
@@ -98,14 +149,14 @@ export const DiscoverScreen = ({
       );
 
       if (popularResult.status === "rejected" && anticipatedResult.status === "rejected") {
-        setError("Não foi possível carregar o browse agora.");
+        setError(t("discover.errors.loadBrowseFailed"));
       }
 
       setLoading(false);
     };
 
     void loadInitial();
-  }, [preferredLanguage, viewerId]);
+  }, [i18n.language, preferredLanguage, viewerId]);
 
   const yearsForSelectedDecade = useMemo(() => {
     if (!selectedDecade) {
@@ -131,9 +182,11 @@ export const DiscoverScreen = ({
   }) => {
     const requestId = latestResultsRequestIdRef.current + 1;
     latestResultsRequestIdRef.current = requestId;
+
     if (dismissKeyboard) {
       Keyboard.dismiss();
     }
+
     setLoading(true);
     setError(null);
     setResultsTitle(title);
@@ -142,19 +195,20 @@ export const DiscoverScreen = ({
 
     try {
       const payload = await load();
+
       if (requestId !== latestResultsRequestIdRef.current) {
         return;
       }
+
       setResults(payload);
     } catch (caughtError) {
       if (requestId !== latestResultsRequestIdRef.current) {
         return;
       }
+
       setResults([]);
       setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Não foi possível carregar esta seleção."
+        caughtError instanceof Error ? caughtError.message : t("discover.errors.loadSelectionFailed")
       );
     } finally {
       if (requestId === latestResultsRequestIdRef.current) {
@@ -164,8 +218,12 @@ export const DiscoverScreen = ({
   };
 
   const performTextSearch = async () => {
+    const normalizedQuery = query.trim();
+
     await openResults({
-      title: query.trim() ? `Busca por "${query.trim()}"` : "Busca",
+      title: normalizedQuery
+        ? t("discover.searchResultsTitle", { query: normalizedQuery })
+        : t("discover.searchResultsFallback"),
       nextPreviousView: "home",
       load: () => searchBooks(query, viewerId)
     });
@@ -183,7 +241,7 @@ export const DiscoverScreen = ({
       setResults([]);
       setError(null);
       setLoading(false);
-      setResultsTitle("Resultados");
+      setResultsTitle(t("discover.results"));
 
       if (view === "results" && previousView === "home") {
         setView("home");
@@ -195,7 +253,7 @@ export const DiscoverScreen = ({
     const timeoutId = setTimeout(() => {
       void openResults({
         dismissKeyboard: false,
-        title: `Busca por "${normalizedQuery}"`,
+        title: t("discover.searchResultsTitle", { query: normalizedQuery }),
         nextPreviousView: "home",
         load: () => searchBooks(normalizedQuery, viewerId)
       });
@@ -204,7 +262,7 @@ export const DiscoverScreen = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [previousView, query, view, viewerId]);
+  }, [i18n.language, previousView, query, view, viewerId]);
 
   const openTaxonomyResults = async (key: TaxonomyKey, value: string, label: string) => {
     const filters: CatalogSearchFilters =
@@ -226,7 +284,9 @@ export const DiscoverScreen = ({
       <View style={styles.sectionRow}>
         <Text style={styles.sectionTitle}>{resultsTitle}</Text>
         <Text style={styles.resultsMeta}>
-          {loading ? "atualizando..." : `${results.length} livros`}
+          {loading
+            ? t("discover.resultsUpdating")
+            : t("discover.resultsCount", { count: results.length })}
         </Text>
       </View>
 
@@ -238,7 +298,7 @@ export const DiscoverScreen = ({
 
       {!loading && results.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Nenhum livro encontrado.</Text>
+          <Text style={styles.emptyTitle}>{t("discover.noResults")}</Text>
         </View>
       ) : null}
 
@@ -250,7 +310,12 @@ export const DiscoverScreen = ({
             <View style={styles.resultBody}>
               <Text style={styles.resultTitle}>{book.title}</Text>
               <Text style={styles.resultAuthor}>{book.author}</Text>
-              <Text style={styles.resultMeta}>{buildMetaLine(book)}</Text>
+              <Text style={styles.resultMeta}>
+                {buildMetaLine(book, {
+                  pages: (count) => t("discover.pages", { count }),
+                  noMetadata: t("discover.noMetadata")
+                })}
+              </Text>
               {book.categories.length > 1 ? (
                 <Text style={styles.genreText}>{book.categories.join(" / ")}</Text>
               ) : null}
@@ -258,7 +323,7 @@ export const DiscoverScreen = ({
           </View>
 
           <View style={styles.resultFooter}>
-            <Text style={styles.resultFooterText}>Abrir ficha do livro</Text>
+            <Text style={styles.resultFooterText}>{t("discover.openDetails")}</Text>
           </View>
         </Pressable>
       ))}
@@ -268,7 +333,7 @@ export const DiscoverScreen = ({
   const renderBrowseHome = () => (
     <>
       <View style={styles.searchPanel}>
-        <Text style={styles.blockEyebrow}>Buscar</Text>
+        <Text style={styles.blockEyebrow}>{t("discover.searchTitle")}</Text>
         <TextInput
           value={query}
           onChangeText={(value) => {
@@ -276,18 +341,18 @@ export const DiscoverScreen = ({
             setQuery(value);
           }}
           onSubmitEditing={() => void performTextSearch()}
-          placeholder="Título, autor ou ISBN"
+          placeholder={t("discover.searchPlaceholder")}
           placeholderTextColor={COLORS.textMuted}
           returnKeyType="search"
           style={styles.searchInput}
         />
         <Pressable style={styles.searchButton} onPress={() => void performTextSearch()}>
-          <Text style={styles.searchButtonText}>Buscar</Text>
+          <Text style={styles.searchButtonText}>{t("discover.searchAction")}</Text>
         </Pressable>
       </View>
 
       <View style={styles.sectionRow}>
-        <Text style={styles.sectionTitle}>Browse</Text>
+        <Text style={styles.sectionTitle}>{t("discover.browseTitle")}</Text>
       </View>
 
       <View style={styles.browseGrid}>
@@ -295,51 +360,56 @@ export const DiscoverScreen = ({
           style={styles.browseCard}
           onPress={() =>
             void openResults({
-              title: "Most Popular",
+              title: t("discover.cards.popular.title"),
               nextPreviousView: "home",
               load: () => popularBooks
             })
           }
         >
-          <Text style={styles.browseTitle}>Most Popular</Text>
-          <Text style={styles.browseText}>Destaques da semana.</Text>
+          <Text style={styles.browseTitle}>{t("discover.cards.popular.title")}</Text>
+          <Text style={styles.browseText}>{t("discover.cards.popular.text")}</Text>
         </Pressable>
 
         <Pressable
           style={styles.browseCard}
           onPress={() =>
             void openResults({
-              title: "Most Anticipated",
+              title: t("discover.cards.anticipated.title"),
               nextPreviousView: "home",
               load: () => anticipatedBooks
             })
           }
         >
-          <Text style={styles.browseTitle}>Most Anticipated</Text>
-          <Text style={styles.browseText}>Novidades e lançamentos.</Text>
+          <Text style={styles.browseTitle}>{t("discover.cards.anticipated.title")}</Text>
+          <Text style={styles.browseText}>{t("discover.cards.anticipated.text")}</Text>
         </Pressable>
 
         <Pressable style={styles.browseCard} onPress={() => setView("release_decade")}>
-          <Text style={styles.browseTitle}>Release Date</Text>
-          <Text style={styles.browseText}>Década e ano.</Text>
+          <Text style={styles.browseTitle}>{t("discover.cards.release.title")}</Text>
+          <Text style={styles.browseText}>{t("discover.cards.release.text")}</Text>
         </Pressable>
 
         <Pressable style={styles.browseCard} onPress={() => setView("taxonomy")}>
-          <Text style={styles.browseTitle}>Genre / Country / Language</Text>
-          <Text style={styles.browseText}>Filtrar catálogo.</Text>
+          <Text style={styles.browseTitle}>{t("discover.cards.taxonomy.title")}</Text>
+          <Text style={styles.browseText}>{t("discover.cards.taxonomy.text")}</Text>
         </Pressable>
 
         <Pressable style={styles.browseCard} onPress={() => setView("service")}>
-          <Text style={styles.browseTitle}>Service</Text>
-          <Text style={styles.browseText}>Escolher fonte.</Text>
+          <Text style={styles.browseTitle}>{t("discover.cards.service.title")}</Text>
+          <Text style={styles.browseText}>{t("discover.cards.service.text")}</Text>
         </Pressable>
       </View>
 
       <View style={styles.sectionRow}>
-        <Text style={styles.sectionTitle}>Livros da semana</Text>
+        <Text style={styles.sectionTitle}>{t("home.weeklyBooks")}</Text>
       </View>
 
-      <ScrollView horizontal contentContainerStyle={styles.railRow} showsHorizontalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        contentContainerStyle={styles.railRow}
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+      >
         {popularBooks.map((book) => (
           <Pressable key={book.googleId} onPress={() => onPickBook(book)} style={styles.railCard}>
             <BookCover uri={book.coverUrl} style={styles.railCover} />
@@ -354,7 +424,7 @@ export const DiscoverScreen = ({
 
   const renderReleaseDecades = () => (
     <View style={styles.selectionGroup}>
-      <Text style={styles.sectionTitle}>Escolha a década</Text>
+      <Text style={styles.sectionTitle}>{t("discover.chooseDecade")}</Text>
       {releaseDecades.map((decade) => (
         <Pressable
           key={decade.label}
@@ -366,7 +436,7 @@ export const DiscoverScreen = ({
         >
           <Text style={styles.selectionTitle}>{decade.label}</Text>
           <Text style={styles.selectionText}>
-            {decade.startYear} a {decade.endYear}
+            {decade.startYear} - {decade.endYear}
           </Text>
         </Pressable>
       ))}
@@ -414,7 +484,7 @@ export const DiscoverScreen = ({
             onPress={() => void openTaxonomyResults(taxonomyTab, option.value, option.label)}
           >
             <Text style={styles.selectionTitle}>{option.label}</Text>
-            <Text style={styles.selectionText}>Abrir livros relacionados</Text>
+            <Text style={styles.selectionText}>{t("discover.openRelated")}</Text>
           </Pressable>
         ))}
       </View>
@@ -423,7 +493,7 @@ export const DiscoverScreen = ({
 
   const renderServices = () => (
     <View style={styles.selectionGroup}>
-      <Text style={styles.sectionTitle}>Escolha o service</Text>
+      <Text style={styles.sectionTitle}>{t("discover.chooseService")}</Text>
       {serviceOptions.map((option) => (
         <Pressable
           key={option.value}
@@ -437,7 +507,7 @@ export const DiscoverScreen = ({
           }
         >
           <Text style={styles.selectionTitle}>{option.label}</Text>
-          <Text style={styles.selectionText}>Abrir livros desse catálogo</Text>
+          <Text style={styles.selectionText}>{t("discover.openCatalog")}</Text>
         </Pressable>
       ))}
     </View>
@@ -450,7 +520,7 @@ export const DiscoverScreen = ({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <SectionHeader eyebrow="Buscar" title="Browse" />
+      <SectionHeader eyebrow={t("app.tabs.discover")} title={t("discover.title")} />
 
       {view !== "home" ? (
         <Pressable
@@ -469,7 +539,7 @@ export const DiscoverScreen = ({
             setView("home");
           }}
         >
-          <Text style={styles.backButtonText}>Voltar</Text>
+          <Text style={styles.backButtonText}>{t("discover.back")}</Text>
         </Pressable>
       ) : null}
 

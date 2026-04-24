@@ -328,6 +328,47 @@ export const memoryStore = {
     };
   },
 
+  updateActivity(input: {
+    activityId: string;
+    userId: string;
+    bookId: string;
+    type: ActivityType;
+    rating: number | null;
+    reviewText: string | null;
+    readAt: string | null;
+    cardTheme: CardThemeName;
+    showExcerpt: boolean;
+  }) {
+    const activity = activities.find(
+      (entry) => entry.id === input.activityId && entry.userId === input.userId
+    );
+
+    if (!activity) {
+      return null;
+    }
+
+    activity.bookId = input.bookId;
+    activity.type = input.type;
+    activity.rating = input.rating;
+    activity.reviewText = input.reviewText;
+    activity.readAt = input.readAt;
+    activity.cardTheme = input.cardTheme;
+    activity.showExcerpt = input.showExcerpt;
+
+    return {
+      id: activity.id,
+      userId: activity.userId,
+      bookId: activity.bookId,
+      type: activity.type,
+      rating: activity.rating,
+      reviewText: activity.reviewText,
+      readAt: activity.readAt,
+      cardTheme: activity.cardTheme,
+      showExcerpt: activity.showExcerpt,
+      createdAt: activity.createdAt
+    };
+  },
+
   getActivityShareCardData(activityId: string) {
     const activity = activities.find((entry) => entry.id === activityId);
 
@@ -418,6 +459,36 @@ export const memoryStore = {
           }
         ];
       })
+    };
+  },
+
+  getViewerBookActivity(googleId: string, userId: string) {
+    const book = books.find((entry) => entry.googleId === googleId);
+
+    if (!book) {
+      return null;
+    }
+
+    const activity = activities
+      .filter((entry) => entry.bookId === book.id && entry.userId === userId)
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+      )[0];
+
+    if (!activity) {
+      return null;
+    }
+
+    return {
+      activityId: activity.id,
+      type: activity.type,
+      rating: activity.rating,
+      reviewText: activity.reviewText,
+      readAt: activity.readAt,
+      createdAt: activity.createdAt,
+      cardTheme: activity.cardTheme,
+      showExcerpt: activity.showExcerpt
     };
   },
 

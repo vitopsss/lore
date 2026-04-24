@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 
 import "./src/i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,6 +13,7 @@ import {
   View
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import { ActivityScreen } from "./src/screens/ActivityScreen";
@@ -24,18 +25,10 @@ import { PostScreen } from "./src/screens/PostScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { BRAND_NAME, COLORS } from "./src/theme";
-import type { BookSearchResult, FeedItem, StreakSnapshot } from "./src/types";
+import type { BookSearchResult, FeedItem, StreakSnapshot, ViewerBookActivity } from "./src/types";
 
 type TabKey = "home" | "discover" | "post" | "activity" | "profile";
 type AuthScreenMode = "login" | "register";
-
-const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: "home", label: "Home" },
-  { key: "discover", label: "Buscar" },
-  { key: "post", label: "Postar" },
-  { key: "activity", label: "Activity" },
-  { key: "profile", label: "Perfil" }
-];
 
 const feedItemToBook = (item: FeedItem): BookSearchResult => ({
   googleId: item.googleId,
@@ -49,6 +42,7 @@ const feedItemToBook = (item: FeedItem): BookSearchResult => ({
 });
 
 const AppShell = () => {
+  const { t } = useTranslation();
   const {
     authUser,
     error: authError,
@@ -59,8 +53,22 @@ const AppShell = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [authMode, setAuthMode] = useState<AuthScreenMode>("login");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [composerSeed, setComposerSeed] = useState<BookSearchResult | null>(null);
+  const [composerSeed, setComposerSeed] = useState<{
+    book: BookSearchResult;
+    activity?: ViewerBookActivity | null;
+  } | null>(null);
   const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
+
+  const tabs = useMemo<Array<{ key: TabKey; label: string }>>(
+    () => [
+      { key: "home", label: t("app.tabs.home") },
+      { key: "discover", label: t("app.tabs.discover") },
+      { key: "post", label: t("app.tabs.post") },
+      { key: "activity", label: t("app.tabs.activity") },
+      { key: "profile", label: t("app.tabs.profile") }
+    ],
+    [t]
+  );
 
   useEffect(() => {
     if (authUser) {
@@ -84,8 +92,14 @@ const AppShell = () => {
     openBookDetail(feedItemToBook(item));
   };
 
-  const openComposerWithBook = (book: BookSearchResult) => {
-    setComposerSeed(book);
+  const openComposerWithBook = (
+    book: BookSearchResult,
+    activity?: ViewerBookActivity | null
+  ) => {
+    setComposerSeed({
+      book,
+      activity
+    });
     setSelectedBook(null);
     setActiveTab("post");
   };
@@ -120,8 +134,8 @@ const AppShell = () => {
       return (
         <View style={styles.bannerCard}>
           <ActivityIndicator color={COLORS.accentSoft} size="small" />
-          <Text style={styles.bannerTitle}>Abrindo app</Text>
-          <Text style={styles.bannerText}>Validando sessão e preparando a experiência.</Text>
+          <Text style={styles.bannerTitle}>{t("app.bootTitle")}</Text>
+          <Text style={styles.bannerText}>{t("app.bootText")}</Text>
         </View>
       );
     }
@@ -138,12 +152,10 @@ const AppShell = () => {
       return (
         <View style={styles.bannerCard}>
           <ActivityIndicator color={COLORS.accentSoft} size="small" />
-          <Text style={styles.bannerTitle}>Sincronizando perfil</Text>
-          <Text style={styles.bannerText}>
-            {authError ?? "Buscando seu perfil na API antes de liberar as rotas."}
-          </Text>
+          <Text style={styles.bannerTitle}>{t("app.profileSyncTitle")}</Text>
+          <Text style={styles.bannerText}>{authError ?? t("app.profileSyncText")}</Text>
           <Pressable style={styles.bannerAction} onPress={() => void refreshProfile()}>
-            <Text style={styles.bannerActionText}>Tentar novamente</Text>
+            <Text style={styles.bannerActionText}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       );
@@ -191,7 +203,8 @@ const AppShell = () => {
           <PostScreen
             viewerId={viewer.id}
             viewerPremium={viewer.premiumStatus}
-            initialBook={composerSeed}
+            initialBook={composerSeed?.book ?? null}
+            initialActivity={composerSeed?.activity ?? null}
             onPostCreated={handlePostCreated}
             onRequestActivity={() => setActiveTab("activity")}
           />
@@ -259,7 +272,9 @@ const AppShell = () => {
 
           <View style={styles.sessionBadge}>
             <View style={styles.sessionDot} />
-            <Text style={styles.sessionText}>{authUser ? "auth live" : "guest"}</Text>
+            <Text style={styles.sessionText}>
+              {authUser ? t("app.sessionLive") : t("app.sessionGuest")}
+            </Text>
           </View>
         </View>
 

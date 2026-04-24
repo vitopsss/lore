@@ -70,6 +70,17 @@ interface BookCommunitySummaryRow {
   communityLogsCount: number;
 }
 
+interface ViewerBookActivityRow {
+  activityId: string;
+  type: "lendo" | "lido" | "abandonado" | "quero_ler";
+  rating: number | null;
+  reviewText: string | null;
+  readAt: string | null;
+  createdAt: string;
+  cardTheme: string;
+  showExcerpt: boolean;
+}
+
 interface CatalogBookDetail extends BookInput {
   categories: string[];
   description: string | null;
@@ -88,6 +99,7 @@ export interface BookDetailPayload {
   };
   reviews: BookCommunityReviewRow[];
   similarBooks: BookInput[];
+  viewerActivity: ViewerBookActivityRow | null;
 }
 
 const normalizeCoverUrl = (coverUrl?: string | null) => {
@@ -312,7 +324,7 @@ const loadGoogleBookDetail = async (
   const response = await fetch(`${env.GOOGLE_BOOKS_BASE_URL}/volumes/${googleId}`);
 
   if (!response.ok) {
-    const fallbackBook = await getGoogleBookById(googleId);
+    const fallbackBook = await getGoogleBookById(googleId, preferredLanguage);
     const localizedVolume = await findLocalizedGoogleVolume(
       {
         googleId,
@@ -526,17 +538,55 @@ const loadBookCommunityDetails = async (
   };
 };
 
+const loadViewerBookActivity = async (
+  googleId: string,
+  viewerId?: string
+): Promise<ViewerBookActivityRow | null> => {
+  if (!viewerId) {
+    return null;
+  }
+
+  if (env.DATA_PROVIDER === "memory") {
+    return memoryStore.getViewerBookActivity(googleId, viewerId);
+  }
+
+  const { rows } = await pool.query<ViewerBookActivityRow>(
+    `
+      select
+        a.id as "activityId",
+        a.type,
+        a.rating,
+        a.review_text as "reviewText",
+        a.read_at as "readAt",
+        a.created_at as "createdAt",
+        a.card_theme as "cardTheme",
+        a.show_excerpt as "showExcerpt"
+      from activities a
+      join books b on b.id = a.book_id
+      where b.google_id = $1
+        and a.user_id = $2
+      order by a.created_at desc
+      limit 1
+    `,
+    [googleId, viewerId]
+  );
+
+  return rows[0] ?? null;
+};
+
 export const getBookDetail = async (
   googleId: string,
-  preferredLanguage?: string
+  preferredLanguage?: string,
+  viewerId?: string
 ): Promise<BookDetailPayload> => {
   const book = isOpenLibraryBookId(googleId)
     ? await loadOpenLibraryBookDetail(googleId)
     : await loadGoogleBookDetail(googleId, preferredLanguage);
 
-  const [community, similarBooks] = await Promise.all([
+  const [community, similarBooks, viewerActivity] = await Promise.all([
     loadBookCommunityDetails(googleId),
-    loadSimilarBooks(book, preferredLanguage)
+    loadSimilarBooks(book, preferredLanguage),
+    loadViewerBookActivity(googleId, viewerId)
   ]);
 
   return {
@@ -550,6 +600,7 @@ export const getBookDetail = async (
       externalRatingsCount: book.externalRatingsCount
     },
     reviews: community.reviews,
-    similarBooks
+    similarBooks,
+    viewerActivity
   };
 };

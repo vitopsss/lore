@@ -11,6 +11,7 @@ type Canvas2DContext = NonNullable<
   ReturnType<ReturnType<typeof createCanvas>["getContext"]>
 >;
 type LoadedImage = Awaited<ReturnType<typeof loadImage>>;
+type CardLocale = "pt" | "en";
 
 const sanitizeFileSegment = (value: string) =>
   value
@@ -20,6 +21,38 @@ const sanitizeFileSegment = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 48) || "story";
+
+const resolveCardLocale = (value?: string | null): CardLocale =>
+  value?.trim().toLowerCase().startsWith("en") ? "en" : "pt";
+
+const CARD_COPY: Record<
+  CardLocale,
+  {
+    excerpt: string;
+    generatedWithLore: string;
+    noCover: string;
+    noExcerpt: string;
+    noRating: string;
+    shareDialogTitle: string;
+  }
+> = {
+  en: {
+    excerpt: "REVIEW",
+    generatedWithLore: "Generated on Lore",
+    noCover: "NO COVER",
+    noExcerpt: "No excerpt highlighted for this post.",
+    noRating: "No rating",
+    shareDialogTitle: "Share to Instagram"
+  },
+  pt: {
+    excerpt: "TRECHO",
+    generatedWithLore: "Gerado no Lore",
+    noCover: "SEM CAPA",
+    noExcerpt: "Sem trecho destacado para este post.",
+    noRating: "Sem nota",
+    shareDialogTitle: "Compartilhar no Instagram"
+  }
+};
 
 const drawRoundedRect = (
   context: Canvas2DContext,
@@ -148,11 +181,16 @@ const drawStar = (
   context.closePath();
 };
 
-const drawRatingRow = (context: Canvas2DContext, rating: number | null, accent: string) => {
+const drawRatingRow = (
+  context: Canvas2DContext,
+  rating: number | null,
+  accent: string,
+  copy: (typeof CARD_COPY)[CardLocale]
+) => {
   if (!rating) {
     context.fillStyle = "rgba(248, 244, 234, 0.55)";
     context.font = "600 26px Arial";
-    const label = "Sem nota";
+    const label = copy.noRating;
     context.fillText(label, WIDTH / 2 - context.measureText(label).width / 2, 980);
     return;
   }
@@ -174,11 +212,11 @@ const drawRatingRow = (context: Canvas2DContext, rating: number | null, accent: 
   context.fillText(ratingLabel, WIDTH / 2 - context.measureText(ratingLabel).width / 2, 1012);
 };
 
-const toExcerpt = (text?: string | null) => {
+const toExcerpt = (copy: (typeof CARD_COPY)[CardLocale], text?: string | null) => {
   const normalized = text?.trim();
 
   if (!normalized) {
-    return "Sem trecho destacado para este post.";
+    return copy.noExcerpt;
   }
 
   return normalized.length > 220 ? `${normalized.slice(0, 217).trimEnd()}\u2026` : normalized;
@@ -188,6 +226,7 @@ const createFallbackCover = (
   context: Canvas2DContext,
   title: string,
   accent: string,
+  copy: (typeof CARD_COPY)[CardLocale],
   x: number,
   y: number
 ) => {
@@ -201,7 +240,7 @@ const createFallbackCover = (
 
   context.fillStyle = accent;
   context.font = "700 26px Arial";
-  context.fillText("SEM CAPA", x + 44, y + 76);
+  context.fillText(copy.noCover, x + 44, y + 76);
 
   context.fillStyle = "#f4efe6";
   context.font = "700 42px Georgia";
@@ -239,6 +278,7 @@ export interface ShareCardRenderInput {
   coverUrl?: string | null;
   rating: number | null;
   excerpt?: string | null;
+  locale?: string | null;
   theme?: CardThemeName;
   showExcerpt?: boolean;
 }
@@ -268,7 +308,9 @@ const renderStoryCard = async (
   const accent = CARD_THEMES[theme].accent;
   const canvas = createCanvas(WIDTH, HEIGHT);
   const context = canvas.getContext("2d");
-  const excerpt = toExcerpt(input.excerpt);
+  const locale = resolveCardLocale(input.locale);
+  const copy = CARD_COPY[locale];
+  const excerpt = toExcerpt(copy, input.excerpt);
   const showExcerpt = input.showExcerpt ?? true;
 
   drawBackground(context, accent);
@@ -297,13 +339,13 @@ const renderStoryCard = async (
       drawRoundedRect(context, coverX, coverY, COVER_WIDTH, COVER_HEIGHT, 36);
       context.stroke();
     } catch {
-      createFallbackCover(context, input.title, accent, coverX, coverY);
+      createFallbackCover(context, input.title, accent, copy, coverX, coverY);
     }
   } else {
-    createFallbackCover(context, input.title, accent, coverX, coverY);
+    createFallbackCover(context, input.title, accent, copy, coverX, coverY);
   }
 
-  drawRatingRow(context, input.rating, accent);
+  drawRatingRow(context, input.rating, accent, copy);
 
   context.fillStyle = "#f8f4ea";
   context.font = "700 70px Georgia";
@@ -332,7 +374,7 @@ const renderStoryCard = async (
 
     context.fillStyle = "rgba(255, 255, 255, 0.52)";
     context.font = "700 24px Arial";
-    context.fillText("TRECHO", 154, 1496);
+    context.fillText(copy.excerpt, 154, 1496);
 
     context.fillStyle = "#f1ebdd";
     context.font = "500 42px Arial";
@@ -351,7 +393,7 @@ const renderStoryCard = async (
 
   context.fillStyle = "rgba(255, 255, 255, 0.68)";
   context.font = "600 28px Arial";
-  const watermark = "Gerado no Lore";
+  const watermark = copy.generatedWithLore;
   context.fillText(
     watermark,
     WIDTH / 2 - context.measureText(watermark).width / 2,

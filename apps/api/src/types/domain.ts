@@ -26,6 +26,8 @@ export interface BookInput {
   isbn?: string | null;
   pageCount?: number | null;
   categories?: string[];
+  language?: string | null;
+  publisher?: string | null;
   amazonAffiliateLink?: string | null;
 }
 

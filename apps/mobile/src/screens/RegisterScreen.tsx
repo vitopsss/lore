@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../contexts/AuthContext";
 import { BRAND_NAME, COLORS } from "../theme";
@@ -9,6 +10,7 @@ export const RegisterScreen = ({
 }: {
   onOpenLogin: () => void;
 }) => {
+  const { t } = useTranslation();
   const { isConfigured, signUpWithPassword } = useAuth();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -19,17 +21,17 @@ export const RegisterScreen = ({
 
   const handleSubmit = async () => {
     if (!isConfigured) {
-      setError("Configure EXPO_PUBLIC_SUPABASE_URL e EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+      setError(t("auth.errors.missingConfig"));
       return;
     }
 
     if (username.trim().length < 3) {
-      setError("Escolha um username com pelo menos 3 caracteres.");
+      setError(t("auth.errors.usernameTooShort"));
       return;
     }
 
     if (!email.trim() || password.trim().length < 6) {
-      setError("Use um e-mail válido e uma senha com pelo menos 6 caracteres.");
+      setError(t("auth.errors.invalidRegistration"));
       return;
     }
 
@@ -43,9 +45,9 @@ export const RegisterScreen = ({
         password,
         username: username.trim()
       });
-      setNotice("Conta criada. Se houver confirmação por e-mail, confirme antes de entrar.");
+      setNotice(t("auth.register.notice"));
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Falha ao criar conta.");
+      setError(caughtError instanceof Error ? caughtError.message : t("auth.errors.registerFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -54,17 +56,15 @@ export const RegisterScreen = ({
   return (
     <View style={styles.card}>
       <Text style={styles.eyebrow}>{BRAND_NAME}</Text>
-      <Text style={styles.title}>Crie sua conta</Text>
-      <Text style={styles.subtitle}>
-        O username é salvo no metadata do Supabase e sincronizado com a API no primeiro login.
-      </Text>
+      <Text style={styles.title}>{t("auth.register.title")}</Text>
+      <Text style={styles.subtitle}>{t("auth.register.subtitle")}</Text>
 
       <TextInput
         value={username}
         onChangeText={setUsername}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="seu_username"
+        placeholder={t("auth.register.usernamePlaceholder")}
         placeholderTextColor={COLORS.textMuted}
         style={styles.input}
       />
@@ -75,7 +75,7 @@ export const RegisterScreen = ({
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        placeholder="voce@exemplo.com"
+        placeholder={t("auth.login.emailPlaceholder")}
         placeholderTextColor={COLORS.textMuted}
         style={styles.input}
       />
@@ -85,7 +85,7 @@ export const RegisterScreen = ({
         onChangeText={setPassword}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="Crie uma senha"
+        placeholder={t("auth.register.passwordPlaceholder")}
         placeholderTextColor={COLORS.textMuted}
         secureTextEntry
         style={styles.input}
@@ -96,12 +96,12 @@ export const RegisterScreen = ({
 
       <Pressable style={styles.primaryAction} onPress={() => void handleSubmit()}>
         <Text style={styles.primaryActionText}>
-          {submitting ? "Criando..." : "Criar conta"}
+          {submitting ? t("auth.register.submitting") : t("auth.register.submit")}
         </Text>
       </Pressable>
 
       <Pressable style={styles.secondaryAction} onPress={onOpenLogin}>
-        <Text style={styles.secondaryActionText}>Voltar para login</Text>
+        <Text style={styles.secondaryActionText}>{t("auth.register.openLogin")}</Text>
       </Pressable>
     </View>
   );

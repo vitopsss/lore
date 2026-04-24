@@ -18,6 +18,12 @@ type AccessTokenResolver = () => string | null | Promise<string | null>;
 
 let accessTokenResolver: AccessTokenResolver | null = null;
 
+export const buildApiHeaders = (headers?: Record<string, string>) => ({
+  "Content-Type": "application/json",
+  "Accept-Language": getCurrentLanguage(),
+  ...headers
+});
+
 const normalizeUser = (
   user: Partial<AppUser> & Pick<AppUser, "id" | "username" | "premiumStatus">
 ): AppUser => ({
@@ -39,11 +45,9 @@ const request = async <T>(
   viewerId?: string,
   options?: RequestInit
 ): Promise<T> => {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "Accept-Language": getCurrentLanguage(),
-    ...(options?.headers as Record<string, string> | undefined)
-  };
+  const headers: Record<string, string> = buildApiHeaders(
+    options?.headers as Record<string, string> | undefined
+  );
 
   const accessToken = accessTokenResolver ? await accessTokenResolver() : null;
 
@@ -189,6 +193,33 @@ export const createActivity = (
 ) =>
   request<ActivityCreationResult>("/activity", viewerId, {
     method: "POST",
+    body: JSON.stringify({
+      userId: viewerId,
+      type: payload.type,
+      rating: payload.rating,
+      cardTheme: payload.cardTheme,
+      showExcerpt: payload.showExcerpt,
+      reviewText: payload.reviewText,
+      readAt: payload.readAt,
+      book: payload.book
+    })
+  });
+
+export const updateActivity = (
+  viewerId: string,
+  activityId: string,
+  payload: {
+    book: BookSearchResult;
+    type: ActivityType;
+    rating: number | null;
+    cardTheme: CardThemeName;
+    showExcerpt?: boolean;
+    reviewText?: string;
+    readAt?: string;
+  }
+) =>
+  request<ActivityCreationResult>(`/activity/${encodeURIComponent(activityId)}`, viewerId, {
+    method: "PUT",
     body: JSON.stringify({
       userId: viewerId,
       type: payload.type,

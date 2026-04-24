@@ -9,12 +9,56 @@
     "edit": "Editar",
     "close": "Fechar"
   },
+  "app": {
+    "tabs": {
+      "home": "Home",
+      "discover": "Buscar",
+      "post": "Postar",
+      "activity": "Activity",
+      "profile": "Perfil"
+    },
+    "bootTitle": "Abrindo app",
+    "bootText": "Validando a sessao e preparando a experiencia.",
+    "profileSyncTitle": "Sincronizando perfil",
+    "profileSyncText": "Buscando seu perfil na API antes de liberar as rotas.",
+    "sessionLive": "sessao ativa",
+    "sessionGuest": "visitante"
+  },
+  "auth": {
+    "errors": {
+      "missingConfig": "Configure EXPO_PUBLIC_SUPABASE_URL e EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+      "missingCredentials": "Preencha e-mail e senha.",
+      "loginFailed": "Falha ao entrar.",
+      "usernameTooShort": "Escolha um username com pelo menos 3 caracteres.",
+      "invalidRegistration": "Use um e-mail valido e uma senha com pelo menos 6 caracteres.",
+      "registerFailed": "Falha ao criar conta."
+    },
+    "login": {
+      "title": "Entre para continuar",
+      "subtitle": "Use sua conta do Supabase para liberar o app e sincronizar o perfil.",
+      "emailPlaceholder": "voce@exemplo.com",
+      "passwordPlaceholder": "Sua senha",
+      "submitting": "Entrando...",
+      "submit": "Entrar",
+      "openRegister": "Criar conta"
+    },
+    "register": {
+      "title": "Crie sua conta",
+      "subtitle": "O username e salvo no metadata do Supabase e sincronizado com a API no primeiro login.",
+      "usernamePlaceholder": "seu_username",
+      "passwordPlaceholder": "Crie uma senha",
+      "submitting": "Criando...",
+      "submit": "Criar conta",
+      "openLogin": "Voltar para login",
+      "notice": "Conta criada. Se houver confirmacao por e-mail, confirme antes de entrar."
+    }
+  },
   "home": {
     "eyebrow": "Home",
-    "title": "Em alta para @{{username}}",
+    "headline": "Em alta agora",
     "popularTab": "Popular",
     "reviewsTab": "Reviews",
-    "listsTab": "Lists",
+    "listsTab": "Listas",
     "journalTab": "Journal",
     "featuredReviews": "Reviews em destaque",
     "yourLists": "Suas listas e estantes",
@@ -23,21 +67,28 @@
     "emptyReviews": "Sem reviews em destaque ainda.",
     "emptyLists": "Sem listas ainda.",
     "emptyJournal": "Sem journal ainda.",
-    "browse": "browse",
+    "browse": "explorar",
     "activity": "activity",
     "profile": "perfil",
-    "diary": "diary"
+    "diary": "diario",
+    "openBook": "Abrir livro",
+    "loadingTitle": "Atualizando a home",
+    "shareInsightMessage": "\"{{quote}}\"\n\n- {{bookTitle}}, {{author}}\n\nvia Lore",
+    "errors": {
+      "loadFailed": "Nao foi possivel montar a home agora.",
+      "shareFailed": "Nao foi possivel compartilhar o insight agora."
+    }
   },
   "shelf": {
-    "wantToRead": "Watchlist",
+    "wantToRead": "Quero ler",
     "reading": "Em andamento",
-    "completed": "Concluídos",
+    "completed": "Concluidos",
     "abandoned": "Abandonados",
-    "genres": "Gêneros do perfil"
+    "genres": "Generos do perfil"
   },
   "community": {
-    "dailyVerse": "O Verso do Dia",
-    "shareInsight": "Compartilhar Insight",
+    "dailyVerse": "Verso do dia",
+    "shareInsight": "Compartilhar insight",
     "peopleReading": "{{count}} pessoa lendo agora",
     "peopleReading_plural": "{{count}} pessoas lendo agora"
   },
@@ -46,13 +97,298 @@
     "noResults": "Nenhum resultado encontrado",
     "filters": "Filtros"
   },
+  "discover": {
+    "title": "Browse",
+    "back": "Voltar",
+    "results": "Resultados",
+    "resultsUpdating": "atualizando...",
+    "resultsCount": "{{count}} livro",
+    "resultsCount_plural": "{{count}} livros",
+    "searchTitle": "Buscar",
+    "searchPlaceholder": "Titulo, autor ou ISBN",
+    "searchAction": "Buscar",
+    "searchResultsTitle": "Busca por \"{{query}}\"",
+    "searchResultsFallback": "Busca",
+    "browseTitle": "Browse",
+    "chooseDecade": "Escolha a decada",
+    "chooseService": "Escolha o service",
+    "openRelated": "Abrir livros relacionados",
+    "openCatalog": "Abrir livros desse catalogo",
+    "openDetails": "Abrir ficha do livro",
+    "noResults": "Nenhum livro encontrado.",
+    "noMetadata": "Sem metadados",
+    "pages": "{{count}} paginas",
+    "cards": {
+      "popular": {
+        "title": "Mais populares",
+        "text": "Destaques da semana."
+      },
+      "anticipated": {
+        "title": "Mais aguardados",
+        "text": "Novidades e lancamentos."
+      },
+      "release": {
+        "title": "Data de lancamento",
+        "text": "Decada e ano."
+      },
+      "taxonomy": {
+        "title": "Genero / Pais / Idioma",
+        "text": "Filtrar catalogo."
+      },
+      "service": {
+        "title": "Service",
+        "text": "Escolher fonte."
+      }
+    },
+    "taxonomy": {
+      "genre": "Genero",
+      "country": "Pais",
+      "language": "Idioma"
+    },
+    "options": {
+      "genre": {
+        "romance": "Romance",
+        "fantasy": "Fantasia",
+        "thriller": "Suspense",
+        "history": "Historia",
+        "nonFiction": "Nao ficcao",
+        "classics": "Classicos"
+      },
+      "country": {
+        "brazil": "Brasil",
+        "unitedStates": "Estados Unidos",
+        "japan": "Japao",
+        "france": "Franca",
+        "argentina": "Argentina",
+        "portugal": "Portugal"
+      },
+      "language": {
+        "portuguese": "Portugues",
+        "english": "English",
+        "spanish": "Espanol",
+        "french": "Francais"
+      },
+      "service": {
+        "googleBooks": "Google Books",
+        "openLibrary": "Open Library"
+      }
+    },
+    "errors": {
+      "loadBrowseFailed": "Nao foi possivel carregar o browse agora.",
+      "loadSelectionFailed": "Nao foi possivel carregar esta selecao."
+    }
+  },
   "book": {
     "details": "Detalhes do livro",
     "author": "Autor",
-    "pages": "páginas",
+    "pages": "paginas",
     "categories": "Categorias",
     "communityRating": "Nota da comunidade",
     "reviewsCount": "{{count}} review",
     "reviewsCount_plural": "{{count}} reviews"
+  },
+  "activity": {
+    "eyebrow": "Activity",
+    "title": "Movimento do app",
+    "followingTab": "Seguindo",
+    "youTab": "Voce",
+    "followingTitle": "Feed da comunidade",
+    "youTitle": "Seu historico",
+    "refreshing": "Atualizando entradas...",
+    "followingMeta": "{{count}} entradas recentes da comunidade.",
+    "youMeta": "{{count}} entradas recentes suas.",
+    "createEntry": "Registrar leitura",
+    "emptyCommunity": "Ainda nao ha atividade suficiente da comunidade.",
+    "emptySelf": "Voce ainda nao registrou nenhuma leitura.",
+    "errors": {
+      "loadFailed": "Nao foi possivel carregar a activity agora."
+    }
+  },
+  "feedEntry": {
+    "noRating": "Sem nota",
+    "purchaseLinkReady": "Link Amazon pronto",
+    "sharing": "Compartilhando...",
+    "share": "Compartilhar",
+    "recent": "recente",
+    "activity": {
+      "quero_ler": "quer ler",
+      "lendo": "esta lendo",
+      "lido": "terminou",
+      "abandonado": "abandonou"
+    }
+  },
+  "share": {
+    "dialogTitle": "Compartilhar card",
+    "errors": {
+      "directoryUnavailable": "Nao encontrei um diretorio temporario para salvar o card.",
+      "unavailable": "O compartilhamento nativo nao esta disponivel neste dispositivo.",
+      "downloadFailed": "Nao foi possivel baixar o card para compartilhar.",
+      "nativeShareFailed": "Nao foi possivel abrir o compartilhamento nativo."
+    }
+  },
+  "bookDetail": {
+    "eyebrow": "Livro",
+    "back": "Voltar",
+    "loading": "Carregando ficha do livro...",
+    "errors": {
+      "loadFailed": "Nao foi possivel abrir este livro agora."
+    },
+    "tabs": {
+      "overview": "Visao geral",
+      "reviews": "Reviews",
+      "similar": "Similares"
+    },
+    "stats": {
+      "average": "media",
+      "reviews": "reviews",
+      "logs": "logs"
+    },
+    "heroPages": "{{count}} paginas",
+    "logCta": "Avaliar / registrar",
+    "editCta": "Editar minha avaliacao",
+    "synopsisTitle": "Sinopse",
+    "showLess": "Mostrar menos",
+    "showMore": "Ler mais...",
+    "noSynopsis": "Sem sinopse disponivel para esta edicao.",
+    "noRating": "Sem nota",
+    "communityMetric": "Comunidade · {{count}} notas",
+    "catalogMetric": "Catalogo · {{count}} avaliacoes",
+    "editionTitle": "Mais desta edicao",
+    "details": {
+      "publisher": "Editora",
+      "isbn": "ISBN",
+      "pages": "Paginas"
+    },
+    "similarTitle": "Livros similares",
+    "viewAll": "ver todos",
+    "emptySimilar": "Sem similares suficientes por enquanto.",
+    "recent": "recente",
+    "reviewNoText": "Sem texto, so nota.",
+    "emptyReviews": "Ainda nao existem reviews desse livro no app.",
+    "emptySimilarStrong": "Ainda nao encontrei similares fortes para este livro."
+  },
+  "post": {
+    "eyebrow": "Postar",
+    "titleCreate": "Avaliar livro",
+    "titleEdit": "Editar avaliacao",
+    "stepOne": "Passo 1",
+    "stepTwo": "Passo 2",
+    "stepThree": "Passo 3",
+    "pickBookTitle": "Escolha o livro",
+    "recordActivityTitle": "Registre a leitura",
+    "editActivityTitle": "Edite sua leitura",
+    "searchPlaceholder": "Titulo, autor ou ISBN",
+    "searchAction": "Buscar",
+    "searching": "Buscando...",
+    "noMetadata": "Sem metadados",
+    "pages": "{{count}} paginas",
+    "hideResults": "Esconder resultados",
+    "changeBook": "Trocar livro",
+    "searchHelp": "Busque um livro.",
+    "resultCount": "{{count}} resultados para escolher",
+    "resultCount_plural": "{{count}} resultados para escolher",
+    "noResultsYet": "Nenhum resultado carregado ainda",
+    "fields": {
+      "status": "Status",
+      "rating": "Nota",
+      "review": "Review",
+      "date": "Data",
+      "theme": "Tema do card"
+    },
+    "status": {
+      "wantToRead": "Quero ler",
+      "reading": "Lendo",
+      "finished": "Terminei",
+      "abandoned": "Abandonei"
+    },
+    "reviewPlaceholder": "Escreva sua impressao curta ou deixe sem review.",
+    "excerptTitle": "Mostrar trecho no card",
+    "excerptOn": "O bloco TRECHO vai aparecer no story.",
+    "excerptOff": "O story sai mais limpo, sem o bloco TRECHO.",
+    "summaryTitle": "Resumo do post",
+    "summaryStatus": "Status: {{status}}",
+    "summaryCard": "Card: {{theme}} / Nota: {{rating}}",
+    "summaryNoRating": "sem nota",
+    "premiumWarning": "Os temas premium continuam bloqueados para perfis basicos.",
+    "saving": "Salvando...",
+    "saveChanges": "Salvar mudancas",
+    "publish": "Salvar avaliacao e publicar",
+    "feedback": {
+      "created": "Leitura publicada.",
+      "updated": "Avaliacao atualizada."
+    },
+    "streak": {
+      "single": "Ofensiva atual: 1 dia.",
+      "many": "Ofensiva atual: {{count}} dias."
+    },
+    "shareTitle": "Compartilhe o card",
+    "shareHelp": "O card foi gerado e esta pronto para o share nativo.",
+    "sharing": "Compartilhando...",
+    "shareInstagram": "Compartilhar no Instagram",
+    "viewActivity": "Ver na activity",
+    "previewTitle": "Preview do story",
+    "errors": {
+      "noResults": "Nenhum livro apareceu nessa busca.",
+      "searchFailed": "Nao foi possivel buscar livros agora.",
+      "bookRequired": "Escolha um livro antes de publicar no mural.",
+      "invalidDate": "Use a data no formato YYYY-MM-DD ao registrar uma leitura concluida.",
+      "saveFailed": "Nao foi possivel salvar a atividade.",
+      "shareFailed": "Nao foi possivel compartilhar o card."
+    }
+  },
+  "profile": {
+    "eyebrow": "Perfil",
+    "title": "Seu perfil",
+    "loading": "Carregando perfil...",
+    "tabs": {
+      "profile": "Perfil",
+      "diary": "Diario",
+      "lists": "Listas",
+      "watchlist": "Watchlist"
+    },
+    "membership": {
+      "premium": "Membro do clube",
+      "basic": "Plano basico"
+    },
+    "streak": {
+      "active": "{{count}} dias de ofensiva",
+      "inactive": "Sem ofensiva ativa"
+    },
+    "mode": {
+      "basicHint": "visao",
+      "basicTitle": "Resumo",
+      "advancedHint": "premium",
+      "advancedTitle": "Analise"
+    },
+    "premiumUnavailable": "Premium indisponivel",
+    "metrics": {
+      "booksRead": "livros lidos",
+      "pagesRead": "paginas",
+      "averageDays": "media de dias"
+    },
+    "premiumLayer": "Camada premium",
+    "advanced": {
+      "averageRating": "nota media",
+      "completionRate": "conclusao",
+      "monthlyPace": "ultimos 30 dias"
+    },
+    "status": {
+      "reading": "Lendo",
+      "finished": "Finalizados",
+      "abandoned": "Abandonados",
+      "queued": "Na fila"
+    },
+    "emptyDiary": "Sem diario",
+    "postReading": "Postar leitura",
+    "shelfStates": "Estados da estante",
+    "topGenres": "Generos que puxam o perfil",
+    "noGenres": "Nenhum genero consolidado ainda.",
+    "emptyWatchlist": "Sem watchlist",
+    "openSearch": "Abrir busca",
+    "errors": {
+      "loadFailed": "Nao foi possivel carregar o perfil.",
+      "statsFailed": "As metricas do perfil falharam ao carregar.",
+      "diaryFailed": "O diario do perfil falhou ao carregar."
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../contexts/AuthContext";
 import { BRAND_NAME, COLORS } from "../theme";
@@ -9,6 +10,7 @@ export const LoginScreen = ({
 }: {
   onOpenRegister: () => void;
 }) => {
+  const { t } = useTranslation();
   const { isConfigured, signInWithPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,12 +19,12 @@ export const LoginScreen = ({
 
   const handleSubmit = async () => {
     if (!isConfigured) {
-      setError("Configure EXPO_PUBLIC_SUPABASE_URL e EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+      setError(t("auth.errors.missingConfig"));
       return;
     }
 
     if (!email.trim() || !password.trim()) {
-      setError("Preencha e-mail e senha.");
+      setError(t("auth.errors.missingCredentials"));
       return;
     }
 
@@ -35,7 +37,7 @@ export const LoginScreen = ({
         password
       });
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Falha ao entrar.");
+      setError(caughtError instanceof Error ? caughtError.message : t("auth.errors.loginFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -44,10 +46,8 @@ export const LoginScreen = ({
   return (
     <View style={styles.card}>
       <Text style={styles.eyebrow}>{BRAND_NAME}</Text>
-      <Text style={styles.title}>Entre para continuar</Text>
-      <Text style={styles.subtitle}>
-        Use sua conta do Supabase para liberar o app e sincronizar o perfil.
-      </Text>
+      <Text style={styles.title}>{t("auth.login.title")}</Text>
+      <Text style={styles.subtitle}>{t("auth.login.subtitle")}</Text>
 
       <TextInput
         value={email}
@@ -55,7 +55,7 @@ export const LoginScreen = ({
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        placeholder="voce@exemplo.com"
+        placeholder={t("auth.login.emailPlaceholder")}
         placeholderTextColor={COLORS.textMuted}
         style={styles.input}
       />
@@ -65,7 +65,7 @@ export const LoginScreen = ({
         onChangeText={setPassword}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="Sua senha"
+        placeholder={t("auth.login.passwordPlaceholder")}
         placeholderTextColor={COLORS.textMuted}
         secureTextEntry
         style={styles.input}
@@ -74,11 +74,13 @@ export const LoginScreen = ({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <Pressable style={styles.primaryAction} onPress={() => void handleSubmit()}>
-        <Text style={styles.primaryActionText}>{submitting ? "Entrando..." : "Entrar"}</Text>
+        <Text style={styles.primaryActionText}>
+          {submitting ? t("auth.login.submitting") : t("auth.login.submit")}
+        </Text>
       </Pressable>
 
       <Pressable style={styles.secondaryAction} onPress={onOpenRegister}>
-        <Text style={styles.secondaryActionText}>Criar conta</Text>
+        <Text style={styles.secondaryActionText}>{t("auth.login.openRegister")}</Text>
       </Pressable>
     </View>
   );

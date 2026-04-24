@@ -1,49 +1,31 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { BookCover } from "./BookCover";
 import { shareActivityCard } from "../lib/share-card";
 import { COLORS, getCardThemeMeta } from "../theme";
 import type { FeedItem } from "../types";
 
-const activityLabels: Record<string, string> = {
-  lendo: "está lendo",
-  lido: "terminou",
-  abandonado: "parou",
-  quero_ler: "quer ler"
-};
-
-const monthLabels = [
-  "jan",
-  "fev",
-  "mar",
-  "abr",
-  "mai",
-  "jun",
-  "jul",
-  "ago",
-  "set",
-  "out",
-  "nov",
-  "dez"
-];
-
-const stars = (rating: number | null) =>
-  rating ? `${"\u2605".repeat(rating)}${"\u2606".repeat(5 - rating)}` : "Sem nota";
-
-const formatDate = (value: string | null) => {
+const formatDate = (value: string | null, locale: string) => {
   if (!value) {
-    return "hoje";
+    return null;
   }
 
   const parsed = new Date(value);
 
   if (Number.isNaN(parsed.getTime())) {
-    return "recente";
+    return null;
   }
 
-  return `${monthLabels[parsed.getMonth()]} ${parsed.getDate()}`;
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short"
+  }).format(parsed);
 };
+
+const stars = (rating: number | null) =>
+  rating ? `${"\u2605".repeat(rating)}${"\u2606".repeat(5 - rating)}` : null;
 
 export const FeedEntryCard = ({
   item,
@@ -59,6 +41,9 @@ export const FeedEntryCard = ({
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const themeMeta = getCardThemeMeta(item.cardTheme);
+  const { i18n, t } = useTranslation();
+  const formattedDate = formatDate(item.readAt ?? item.createdAt, i18n.language);
+  const ratingText = stars(item.rating) ?? t("feedEntry.noRating");
 
   const handleShare = async () => {
     setSharing(true);
@@ -68,25 +53,25 @@ export const FeedEntryCard = ({
       await shareActivityCard(item.activityId);
     } catch (error) {
       setShareError(
-        error instanceof Error ? error.message : "Não foi possível compartilhar este card."
+        error instanceof Error ? error.message : t("share.errors.nativeShareFailed")
       );
     } finally {
       setSharing(false);
     }
   };
 
-  return (
-    <View style={[styles.card, compact && styles.cardCompact]}>
+  const content = (
+    <>
       <View style={[styles.accent, { backgroundColor: themeMeta.accent }]} />
 
       <View style={styles.header}>
         <View style={styles.userBlock}>
           {showUsername ? <Text style={styles.username}>@{item.username}</Text> : null}
-          <Text style={styles.activityLine}>{activityLabels[item.type] ?? item.type}</Text>
+          <Text style={styles.activityLine}>{t(`feedEntry.activity.${item.type}`)}</Text>
         </View>
 
         <View style={styles.metaBlock}>
-          <Text style={styles.date}>{formatDate(item.readAt ?? item.createdAt)}</Text>
+          <Text style={styles.date}>{formattedDate ?? t("feedEntry.recent")}</Text>
           <Text style={[styles.themeTag, { color: themeMeta.accent }]}>{themeMeta.label}</Text>
         </View>
       </View>
@@ -97,33 +82,45 @@ export const FeedEntryCard = ({
         <View style={styles.copy}>
           <Text style={styles.title}>{item.title}</Text>
           <Text style={styles.author}>{item.author}</Text>
-          <Text style={[styles.rating, { color: themeMeta.accent }]}>{stars(item.rating)}</Text>
+          <Text style={[styles.rating, { color: themeMeta.accent }]}>{ratingText}</Text>
           {item.reviewText ? <Text style={styles.review}>{item.reviewText}</Text> : null}
-          {item.amazonAffiliateLink ? <Text style={styles.signal}>Link de compra pronto</Text> : null}
+          {item.amazonAffiliateLink ? (
+            <Text style={styles.signal}>{t("feedEntry.purchaseLinkReady")}</Text>
+          ) : null}
         </View>
       </View>
 
       <View style={styles.actions}>
-        {onOpenBook ? (
-          <Pressable style={styles.secondaryAction} onPress={() => onOpenBook(item)}>
-            <Text style={styles.secondaryActionText}>Abrir livro</Text>
-          </Pressable>
-        ) : null}
-
         <Pressable
           style={[styles.primaryAction, sharing && styles.actionDisabled]}
           disabled={sharing}
-          onPress={() => void handleShare()}
+          onPress={(event) => {
+            event.stopPropagation();
+            void handleShare();
+          }}
         >
           <Text style={styles.primaryActionText}>
-            {sharing ? "Compartilhando..." : "Compartilhar no Instagram"}
+            {sharing ? t("feedEntry.sharing") : t("feedEntry.share")}
           </Text>
         </Pressable>
       </View>
 
       {shareError ? <Text style={styles.errorText}>{shareError}</Text> : null}
-    </View>
+    </>
   );
+
+  if (onOpenBook) {
+    return (
+      <Pressable
+        onPress={() => onOpenBook(item)}
+        style={[styles.card, compact && styles.cardCompact]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={[styles.card, compact && styles.cardCompact]}>{content}</View>;
 };
 
 const styles = StyleSheet.create({
@@ -242,21 +239,6 @@ const styles = StyleSheet.create({
     color: "#101013",
     fontSize: 13,
     fontWeight: "900"
-  },
-  secondaryAction: {
-    alignItems: "center",
-    backgroundColor: COLORS.backgroundRaised,
-    borderColor: COLORS.borderStrong,
-    borderRadius: 16,
-    borderWidth: 1,
-    minWidth: 124,
-    paddingHorizontal: 14,
-    paddingVertical: 12
-  },
-  secondaryActionText: {
-    color: COLORS.text,
-    fontSize: 13,
-    fontWeight: "800"
   },
   actionDisabled: {
     opacity: 0.55

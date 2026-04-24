@@ -1,84 +1,45 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { loadBookDetail } from "../api/client";
 import { BookCover } from "../components/BookCover";
 import { SectionHeader } from "../components/SectionHeader";
 import { SubTabBar } from "../components/SubTabBar";
 import { COLORS } from "../theme";
-import type { BookDetailPayload, BookSearchResult } from "../types";
+import type { BookDetailPayload, BookSearchResult, ViewerBookActivity } from "../types";
 
 type DetailTab = "overview" | "reviews" | "similar";
 
-const detailTabs: Array<{ key: DetailTab; label: string }> = [
-  { key: "overview", label: "Visão geral" },
-  { key: "reviews", label: "Reviews" },
-  { key: "similar", label: "Similares" }
-];
-
-const monthLabels = [
-  "jan",
-  "fev",
-  "mar",
-  "abr",
-  "mai",
-  "jun",
-  "jul",
-  "ago",
-  "set",
-  "out",
-  "nov",
-  "dez"
-];
-
 const SYNOPSIS_PREVIEW_LIMIT = 420;
 
-const starsText = (rating: number | null) => {
+const formatAverage = (value: number | null) =>
+  value === null ? "-" : value.toFixed(1).replace(/\.0$/, "");
+
+const starsText = (rating: number | null, emptyLabel: string) => {
   if (!rating) {
-    return "Sem nota";
+    return emptyLabel;
   }
 
   const rounded = Math.max(1, Math.min(5, Math.round(rating)));
   return `${"\u2605".repeat(rounded)}${"\u2606".repeat(5 - rounded)}`;
 };
 
-const formatLogDate = (value: string | null) => {
+const formatLogDate = (value: string | null, locale: string, emptyLabel: string) => {
   if (!value) {
-    return "recente";
+    return emptyLabel;
   }
 
   const parsed = new Date(value);
 
   if (Number.isNaN(parsed.getTime())) {
-    return "recente";
+    return emptyLabel;
   }
 
-  return `${monthLabels[parsed.getMonth()]} ${parsed.getDate()}`;
-};
-
-const formatAverage = (value: number | null) =>
-  value === null ? "-" : value.toFixed(1).replace(/\.0$/, "");
-
-const buildHeroMeta = (payload: BookDetailPayload | null) => {
-  if (!payload) {
-    return [];
-  }
-
-  const items = [];
-
-  if (payload.book.pageCount) {
-    items.push(`${payload.book.pageCount} páginas`);
-  }
-
-  if (payload.book.publishedDate) {
-    items.push(payload.book.publishedDate.slice(0, 4));
-  }
-
-  if (payload.book.language) {
-    items.push(payload.book.language.toUpperCase());
-  }
-
-  return items;
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short"
+  }).format(parsed);
 };
 
 const buildSynopsisPreview = (text: string, limit = SYNOPSIS_PREVIEW_LIMIT) => {
@@ -97,8 +58,35 @@ const buildSynopsisPreview = (text: string, limit = SYNOPSIS_PREVIEW_LIMIT) => {
 
   return {
     isTruncated: true,
-    text: `${rawPreview.slice(0, safeCutoff).trimEnd()}…`
+    text: `${rawPreview.slice(0, safeCutoff).trimEnd()}...`
   };
+};
+
+const buildHeroMeta = (
+  payload: BookDetailPayload | null,
+  labels: {
+    pages: (count: number) => string;
+  }
+) => {
+  if (!payload) {
+    return [];
+  }
+
+  const items: string[] = [];
+
+  if (payload.book.pageCount) {
+    items.push(labels.pages(payload.book.pageCount));
+  }
+
+  if (payload.book.publishedDate) {
+    items.push(payload.book.publishedDate.slice(0, 4));
+  }
+
+  if (payload.book.language) {
+    items.push(payload.book.language.toUpperCase());
+  }
+
+  return items;
 };
 
 export const BookDetailScreen = ({
@@ -112,8 +100,9 @@ export const BookDetailScreen = ({
   book: BookSearchResult;
   onBack: () => void;
   onOpenBook: (book: BookSearchResult) => void;
-  onLogBook: (book: BookSearchResult) => void;
+  onLogBook: (book: BookSearchResult, activity?: ViewerBookActivity | null) => void;
 }) => {
+  const { i18n, t } = useTranslation();
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
   const [detail, setDetail] = useState<BookDetailPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,7 +122,7 @@ export const BookDetailScreen = ({
         setError(
           caughtError instanceof Error
             ? caughtError.message
-            : "Não foi possível abrir este livro agora."
+            : t("bookDetail.errors.loadFailed")
         );
       } finally {
         setLoading(false);
@@ -141,30 +130,55 @@ export const BookDetailScreen = ({
     };
 
     void refresh();
-  }, [book.googleId, viewerId]);
+  }, [book.googleId, i18n.language, viewerId]);
 
   useEffect(() => {
     setShowFullSynopsis(false);
+    setActiveTab("overview");
   }, [book.googleId]);
 
-  const heroMeta = useMemo(() => buildHeroMeta(detail), [detail]);
+  const detailTabs = useMemo<Array<{ key: DetailTab; label: string }>>(
+    () => [
+      { key: "overview", label: t("bookDetail.tabs.overview") },
+      { key: "reviews", label: t("bookDetail.tabs.reviews") },
+      { key: "similar", label: t("bookDetail.tabs.similar") }
+    ],
+    [t]
+  );
+
+  const heroMeta = useMemo(
+    () =>
+      buildHeroMeta(detail, {
+        pages: (count) => t("bookDetail.heroPages", { count })
+      }),
+    [detail, t]
+  );
+
   const summaryBook = detail?.book ?? book;
+  const viewerActivity = detail?.viewerActivity ?? null;
   const overviewSimilar = detail?.similarBooks.slice(0, 6) ?? [];
   const synopsis =
-    detail?.book.description?.trim() || "Sem sinopse disponível para esta edição.";
+    detail?.book.description?.trim() || t("bookDetail.noSynopsis");
   const synopsisPreview = buildSynopsisPreview(synopsis);
   const synopsisText =
     showFullSynopsis || !synopsisPreview.isTruncated ? synopsis : synopsisPreview.text;
+  const primaryCtaLabel = viewerActivity
+    ? t("bookDetail.editCta")
+    : t("bookDetail.logCta");
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
         <Pressable style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>Voltar</Text>
+          <Text style={styles.backButtonText}>{t("bookDetail.back")}</Text>
         </Pressable>
       </View>
 
-      <SectionHeader eyebrow="Livro" title={summaryBook.title} subtitle={summaryBook.author} />
+      <SectionHeader
+        eyebrow={t("bookDetail.eyebrow")}
+        title={summaryBook.title}
+        subtitle={summaryBook.author}
+      />
 
       <View style={styles.hero}>
         <BookCover uri={summaryBook.coverUrl} style={styles.cover} />
@@ -175,15 +189,15 @@ export const BookDetailScreen = ({
               <Text style={styles.statValue}>
                 {formatAverage(detail?.ratings.communityAverageRating ?? null)}
               </Text>
-              <Text style={styles.statLabel}>média</Text>
+              <Text style={styles.statLabel}>{t("bookDetail.stats.average")}</Text>
             </View>
             <View style={styles.statChip}>
               <Text style={styles.statValue}>{detail?.ratings.communityReviewsCount ?? 0}</Text>
-              <Text style={styles.statLabel}>reviews</Text>
+              <Text style={styles.statLabel}>{t("bookDetail.stats.reviews")}</Text>
             </View>
             <View style={styles.statChip}>
               <Text style={styles.statValue}>{detail?.ratings.communityLogsCount ?? 0}</Text>
-              <Text style={styles.statLabel}>logs</Text>
+              <Text style={styles.statLabel}>{t("bookDetail.stats.logs")}</Text>
             </View>
           </View>
 
@@ -204,8 +218,11 @@ export const BookDetailScreen = ({
           ) : null}
 
           <View style={styles.ctaRow}>
-            <Pressable style={styles.primaryButton} onPress={() => onLogBook(summaryBook)}>
-              <Text style={styles.primaryButtonText}>Avaliar / registrar</Text>
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => onLogBook(summaryBook, viewerActivity)}
+            >
+              <Text style={styles.primaryButtonText}>{primaryCtaLabel}</Text>
             </Pressable>
           </View>
         </View>
@@ -213,7 +230,7 @@ export const BookDetailScreen = ({
 
       <SubTabBar options={detailTabs} value={activeTab} onChange={setActiveTab} />
 
-      {loading ? <Text style={styles.loadingText}>Carregando ficha do livro...</Text> : null}
+      {loading ? <Text style={styles.loadingText}>{t("bookDetail.loading")}</Text> : null}
 
       {error ? (
         <View style={styles.errorCard}>
@@ -224,12 +241,14 @@ export const BookDetailScreen = ({
       {!loading && !error && activeTab === "overview" ? (
         <>
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Sinopse</Text>
+            <Text style={styles.panelTitle}>{t("bookDetail.synopsisTitle")}</Text>
             <Text style={styles.bodyText}>{synopsisText}</Text>
             {synopsisPreview.isTruncated ? (
               <Pressable onPress={() => setShowFullSynopsis((current) => !current)}>
                 <Text style={styles.synopsisLinkText}>
-                  {showFullSynopsis ? "Mostrar menos" : "Ler mais..."}
+                  {showFullSynopsis
+                    ? t("bookDetail.showLess")
+                    : t("bookDetail.showMore")}
                 </Text>
               </Pressable>
             ) : null}
@@ -238,43 +257,53 @@ export const BookDetailScreen = ({
           <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
               <Text style={styles.metricValue}>
-                {starsText(detail?.ratings.communityAverageRating ?? null)}
+                {starsText(
+                  detail?.ratings.communityAverageRating ?? null,
+                  t("bookDetail.noRating")
+                )}
               </Text>
               <Text style={styles.metricLabel}>
-                Comunidade · {detail?.ratings.communityRatingsCount ?? 0} notas
+                {t("bookDetail.communityMetric", {
+                  count: detail?.ratings.communityRatingsCount ?? 0
+                })}
               </Text>
             </View>
 
             <View style={styles.metricCard}>
               <Text style={styles.metricValue}>
-                {starsText(detail?.ratings.externalAverageRating ?? null)}
+                {starsText(
+                  detail?.ratings.externalAverageRating ?? null,
+                  t("bookDetail.noRating")
+                )}
               </Text>
               <Text style={styles.metricLabel}>
-                Catálogo · {detail?.ratings.externalRatingsCount ?? 0} avaliações
+                {t("bookDetail.catalogMetric", {
+                  count: detail?.ratings.externalRatingsCount ?? 0
+                })}
               </Text>
             </View>
           </View>
 
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Mais desta edição</Text>
+            <Text style={styles.panelTitle}>{t("bookDetail.editionTitle")}</Text>
             <View style={styles.detailRows}>
               {detail?.book.publisher ? (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Editora</Text>
+                  <Text style={styles.detailLabel}>{t("bookDetail.details.publisher")}</Text>
                   <Text style={styles.detailValue}>{detail.book.publisher}</Text>
                 </View>
               ) : null}
 
               {detail?.book.isbn ? (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>ISBN</Text>
+                  <Text style={styles.detailLabel}>{t("bookDetail.details.isbn")}</Text>
                   <Text style={styles.detailValue}>{detail.book.isbn}</Text>
                 </View>
               ) : null}
 
               {detail?.book.pageCount ? (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Páginas</Text>
+                  <Text style={styles.detailLabel}>{t("bookDetail.details.pages")}</Text>
                   <Text style={styles.detailValue}>{detail.book.pageCount}</Text>
                 </View>
               ) : null}
@@ -283,14 +312,14 @@ export const BookDetailScreen = ({
 
           <View style={styles.panel}>
             <View style={styles.sectionRow}>
-              <Text style={styles.panelTitle}>Livros similares</Text>
+              <Text style={styles.panelTitle}>{t("bookDetail.similarTitle")}</Text>
               <Pressable onPress={() => setActiveTab("similar")}>
-                <Text style={styles.linkText}>ver todos</Text>
+                <Text style={styles.linkText}>{t("bookDetail.viewAll")}</Text>
               </Pressable>
             </View>
 
             {overviewSimilar.length === 0 ? (
-              <Text style={styles.bodyText}>Sem similares suficientes por enquanto.</Text>
+              <Text style={styles.bodyText}>{t("bookDetail.emptySimilar")}</Text>
             ) : (
               <ScrollView
                 horizontal
@@ -326,21 +355,27 @@ export const BookDetailScreen = ({
                 <View>
                   <Text style={styles.reviewUser}>@{review.username}</Text>
                   <Text style={styles.reviewDate}>
-                    {formatLogDate(review.readAt ?? review.createdAt)}
+                    {formatLogDate(
+                      review.readAt ?? review.createdAt,
+                      i18n.language,
+                      t("bookDetail.recent")
+                    )}
                   </Text>
                 </View>
-                <Text style={styles.reviewStars}>{starsText(review.rating)}</Text>
+                <Text style={styles.reviewStars}>
+                  {starsText(review.rating, t("bookDetail.noRating"))}
+                </Text>
               </View>
               {review.reviewText ? (
                 <Text style={styles.reviewText}>{review.reviewText}</Text>
               ) : (
-                <Text style={styles.reviewMuted}>Sem texto, só nota.</Text>
+                <Text style={styles.reviewMuted}>{t("bookDetail.reviewNoText")}</Text>
               )}
             </View>
           ))
         ) : (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Ainda não existem reviews desse livro no app.</Text>
+            <Text style={styles.emptyTitle}>{t("bookDetail.emptyReviews")}</Text>
           </View>
         )
       ) : null}
@@ -366,9 +401,7 @@ export const BookDetailScreen = ({
           ))
         ) : (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>
-              Ainda não encontrei similares fortes para este livro.
-            </Text>
+            <Text style={styles.emptyTitle}>{t("bookDetail.emptySimilarStrong")}</Text>
           </View>
         )
       ) : null}

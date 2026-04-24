@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import { HttpError } from "../lib/http-error";
-import { registerActivity } from "../services/activity.service";
+import { registerActivity, updateActivity } from "../services/activity.service";
 
 const activitySchema = z
   .object({
@@ -46,10 +46,40 @@ export const activityController = async (request: Request, response: Response) =
 
   const result = await registerActivity({
     ...payload,
-    userId
+    userId,
+    locale: request.language
   });
 
   response.status(201).json({
+    data: result
+  });
+};
+
+const activityParamsSchema = z.object({
+  activityId: z.string().uuid()
+});
+
+export const updateActivityController = async (request: Request, response: Response) => {
+  const { activityId } = activityParamsSchema.parse(request.params);
+  const payload = activitySchema.parse(request.body);
+  const userId = request.currentUser?.id ?? payload.userId;
+
+  if (!userId) {
+    throw new HttpError(
+      401,
+      "Autentique-se com um token Bearer vÃ¡lido para editar uma atividade.",
+      "unauthorized"
+    );
+  }
+
+  const result = await updateActivity({
+    ...payload,
+    activityId,
+    userId,
+    locale: request.language
+  });
+
+  response.json({
     data: result
   });
 };

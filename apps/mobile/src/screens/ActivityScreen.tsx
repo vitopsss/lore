@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { loadFeed } from "../api/client";
 import { FeedEntryCard } from "../components/FeedEntryCard";
@@ -7,11 +8,6 @@ import { SectionHeader } from "../components/SectionHeader";
 import { SubTabBar } from "../components/SubTabBar";
 import { COLORS } from "../theme";
 import type { FeedItem, FeedScope } from "../types";
-
-const scopeTabs: Array<{ key: FeedScope; label: string }> = [
-  { key: "community", label: "Following" },
-  { key: "self", label: "You" }
-];
 
 export const ActivityScreen = ({
   viewerId,
@@ -28,6 +24,15 @@ export const ActivityScreen = ({
   const [scope, setScope] = useState<FeedScope>("community");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
+
+  const scopeTabs = useMemo(
+    () => [
+      { key: "community" as const, label: t("activity.followingTab") },
+      { key: "self" as const, label: t("activity.youTab") }
+    ],
+    [t]
+  );
 
   const refresh = async (nextScope = scope) => {
     setLoading(true);
@@ -38,7 +43,7 @@ export const ActivityScreen = ({
       setFeed(payload);
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : "Não foi possível carregar a activity."
+        caughtError instanceof Error ? caughtError.message : t("activity.errors.loadFailed")
       );
     } finally {
       setLoading(false);
@@ -51,24 +56,24 @@ export const ActivityScreen = ({
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <SectionHeader eyebrow="Activity" title="Feed" />
+      <SectionHeader eyebrow={t("activity.eyebrow")} title={t("activity.title")} />
 
       <View style={styles.hero}>
         <View style={styles.heroCopy}>
           <Text style={styles.heroTitle}>
-            {scope === "community" ? "Following activity" : "Your activity"}
+            {scope === "community" ? t("activity.followingTitle") : t("activity.youTitle")}
           </Text>
           <Text style={styles.heroText}>
             {loading
-              ? "Atualizando feed..."
+              ? t("activity.refreshing")
               : scope === "community"
-                ? `${feed.length} itens da sua rede`
-                : `${feed.length} itens do seu histórico`}
+                ? t("activity.followingMeta", { count: feed.length })
+                : t("activity.youMeta", { count: feed.length })}
           </Text>
         </View>
 
         <Pressable style={styles.heroAction} onPress={onRequestCreateEntry}>
-          <Text style={styles.heroActionText}>Postar leitura</Text>
+          <Text style={styles.heroActionText}>{t("activity.createEntry")}</Text>
         </Pressable>
       </View>
 
@@ -83,9 +88,7 @@ export const ActivityScreen = ({
       {!loading && feed.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>
-            {scope === "community"
-              ? "Ainda não há atividade suficiente no feed que você segue."
-              : "Você ainda não registrou leituras."}
+            {scope === "community" ? t("activity.emptyCommunity") : t("activity.emptySelf")}
           </Text>
         </View>
       ) : null}

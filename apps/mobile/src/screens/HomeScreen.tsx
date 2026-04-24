@@ -1,15 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { loadDailyVerse, loadFeed, loadFeaturedBooks, loadNowReadingPulse, loadStats } from "../api/client";
+import {
+  loadDailyVerse,
+  loadFeed,
+  loadFeaturedBooks,
+  loadNowReadingPulse,
+  loadStats
+} from "../api/client";
 import { BookCover } from "../components/BookCover";
 import { FeedEntryCard } from "../components/FeedEntryCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -19,20 +26,6 @@ import { COLORS } from "../theme";
 import type { BookSearchResult, FeedItem, StatsPayload } from "../types";
 
 type HomeTab = "popular" | "reviews" | "lists" | "journal";
-
-const homeTabs: Array<{ key: HomeTab; label: string }> = [
-  { key: "popular", label: "Popular" },
-  { key: "reviews", label: "Reviews" },
-  { key: "lists", label: "Lists" },
-  { key: "journal", label: "Journal" }
-];
-
-const shelfLabels: Record<string, string> = {
-  quero_ler: "Watchlist",
-  lendo: "Em andamento",
-  lido: "Concluídos",
-  abandonado: "Abandonados"
-};
 
 interface DailyVerseData {
   quote: string;
@@ -62,16 +55,16 @@ const DailyVerse = ({
   return (
     <View style={styles.verseCard}>
       <View style={styles.verseHeader}>
-        <Text style={styles.verseEyebrow}>{t("community:dailyVerse")}</Text>
+        <Text style={styles.verseEyebrow}>{t("community.dailyVerse")}</Text>
         <View style={styles.verseDivider} />
       </View>
       <Text style={styles.verseText}>"{verse.quote}"</Text>
       <Text style={styles.verseSource}>
-        — {verse.bookTitle}, {verse.author}
+        - {verse.bookTitle}, {verse.author}
       </Text>
       {onShare ? (
         <Pressable onPress={onShare} style={styles.verseButton}>
-          <Text style={styles.verseButtonText}>{t("community:shareInsight")}</Text>
+          <Text style={styles.verseButtonText}>{t("community.shareInsight")}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -92,57 +85,58 @@ const BookRail = ({
   actionLabel?: string;
   onAction?: () => void;
   pulseBooks?: PulseBook[];
-}) => (
-  <View style={styles.railSection}>
-    <View style={styles.sectionRow}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {actionLabel && onAction ? (
-        <Pressable onPress={onAction}>
-          <Text style={styles.linkText}>{actionLabel}</Text>
-        </Pressable>
-      ) : null}
-    </View>
+}) => {
+  const { t } = useTranslation();
 
-    <ScrollView
-      horizontal
-      contentContainerStyle={styles.popularRow}
-      showsHorizontalScrollIndicator={false}
-    >
-      {books.map((book, index) => {
-        const pulseData = pulseBooks?.[index];
-        const readerCount = pulseData?.readerCount ?? 0;
-
-        return (
-          <Pressable
-            key={book.googleId}
-            onPress={() => onPickBook(book)}
-            style={styles.popularCard}
-          >
-            <View style={styles.coverWrapper}>
-              <BookCover uri={book.coverUrl} style={styles.popularCover} />
-              {readerCount > 0 && (
-                <View style={styles.pulseBadge}>
-                  <Text style={styles.pulseBadgeText}>
-                    {readerCount} {readerCount === 1 ? "pessoa" : "pessoas"} lendo agora
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.popularTitle} numberOfLines={2}>
-              {book.title}
-            </Text>
-            <Text style={styles.popularAuthor} numberOfLines={1}>
-              {book.author}
-            </Text>
-            <Text style={styles.popularMeta} numberOfLines={2}>
-              {book.categories.slice(0, 2).join(" / ") || "Abrir livro"}
-            </Text>
+  return (
+    <View style={styles.railSection}>
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {actionLabel && onAction ? (
+          <Pressable onPress={onAction}>
+            <Text style={styles.linkText}>{actionLabel}</Text>
           </Pressable>
-        );
-      })}
-    </ScrollView>
-  </View>
-);
+        ) : null}
+      </View>
+
+      <ScrollView
+        horizontal
+        contentContainerStyle={styles.popularRow}
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+      >
+        {books.map((book, index) => {
+          const pulseData = pulseBooks?.[index];
+          const readerCount = pulseData?.readerCount ?? 0;
+
+          return (
+            <Pressable key={book.googleId} onPress={() => onPickBook(book)} style={styles.popularCard}>
+              <View style={styles.coverWrapper}>
+                <BookCover uri={book.coverUrl} style={styles.popularCover} />
+                {readerCount > 0 ? (
+                  <View style={styles.pulseBadge}>
+                    <Text style={styles.pulseBadgeText}>
+                      {t("community.peopleReading", { count: readerCount })}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.popularTitle} numberOfLines={2}>
+                {book.title}
+              </Text>
+              <Text style={styles.popularAuthor} numberOfLines={1}>
+                {book.author}
+              </Text>
+              <Text style={styles.popularMeta} numberOfLines={2}>
+                {book.categories.slice(0, 2).join(" / ") || t("home.openBook")}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+};
 
 export const HomeScreen = ({
   currentStreak,
@@ -163,6 +157,7 @@ export const HomeScreen = ({
   onOpenFeedBook: (item: FeedItem) => void;
   refreshKey: number;
 }) => {
+  const { i18n, t } = useTranslation();
   const [activeTab, setActiveTab] = useState<HomeTab>("popular");
   const [dailyVerse, setDailyVerse] = useState<DailyVerseData | null>(null);
   const [popularBooks, setPopularBooks] = useState<BookSearchResult[]>([]);
@@ -173,6 +168,26 @@ export const HomeScreen = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const preferredLanguage = getPreferredCatalogLanguage();
+
+  const homeTabs = useMemo<Array<{ key: HomeTab; label: string }>>(
+    () => [
+      { key: "popular", label: t("home.popularTab") },
+      { key: "reviews", label: t("home.reviewsTab") },
+      { key: "lists", label: t("home.listsTab") },
+      { key: "journal", label: t("home.journalTab") }
+    ],
+    [t]
+  );
+
+  const shelfLabels: Record<string, string> = useMemo(
+    () => ({
+      quero_ler: t("shelf.wantToRead"),
+      lendo: t("shelf.reading"),
+      lido: t("shelf.completed"),
+      abandonado: t("shelf.abandoned")
+    }),
+    [t]
+  );
 
   const refresh = async () => {
     setLoading(true);
@@ -201,7 +216,7 @@ export const HomeScreen = ({
       selfResult.status === "rejected" &&
       statsResult.status === "rejected"
     ) {
-      setError("Não foi possível montar a home agora.");
+      setError(t("home.errors.loadFailed"));
     }
 
     setLoading(false);
@@ -209,18 +224,34 @@ export const HomeScreen = ({
 
   useEffect(() => {
     void refresh();
-  }, [preferredLanguage, refreshKey, viewerId]);
+  }, [i18n.language, preferredLanguage, refreshKey, viewerId]);
+
+  const handleShareInsight = async () => {
+    if (!dailyVerse) {
+      return;
+    }
+
+    try {
+      await Share.share({
+        message: t("home.shareInsightMessage", {
+          quote: dailyVerse.quote,
+          bookTitle: dailyVerse.bookTitle,
+          author: dailyVerse.author
+        })
+      });
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : t("home.errors.shareFailed"));
+    }
+  };
 
   const reviewFeed = communityFeed.filter((item) => Boolean(item.reviewText)).slice(0, 6);
   const journalFeed = selfFeed.filter((item) => item.type !== "quero_ler").slice(0, 6);
   const shelfEntries = Object.entries(stats?.statuses ?? {}).sort((left, right) => right[1] - left[1]);
 
-  const { t } = useTranslation();
-
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
-        <SectionHeader eyebrow={t("home:eyebrow")} title="Em alta agora" />
+        <SectionHeader eyebrow={t("home.eyebrow")} title={t("home.headline")} />
         {currentStreak > 0 ? (
           <View style={styles.streakBadge}>
             <Text style={styles.streakBadgeIcon}>{"\uD83D\uDD25"}</Text>
@@ -229,7 +260,7 @@ export const HomeScreen = ({
         ) : null}
       </View>
 
-      <DailyVerse verse={dailyVerse} onShare={() => {}} />
+      <DailyVerse verse={dailyVerse} onShare={() => void handleShareInsight()} />
 
       <SubTabBar options={homeTabs} value={activeTab} onChange={setActiveTab} />
 
@@ -237,11 +268,12 @@ export const HomeScreen = ({
         <View style={styles.loadingCard}>
           <ActivityIndicator color={COLORS.accentSoft} size="small" />
           <View style={styles.loadingCopy}>
-            <Text style={styles.loadingTitle}>Atualizando a home</Text>
-            <Text style={styles.loadingText}>{t("common:loading")}</Text>
+            <Text style={styles.loadingTitle}>{t("home.loadingTitle")}</Text>
+            <Text style={styles.loadingText}>{t("common.loading")}</Text>
           </View>
         </View>
       ) : null}
+
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
@@ -250,10 +282,10 @@ export const HomeScreen = ({
 
       {activeTab === "popular" ? (
         <BookRail
-          title={t("home:weeklyBooks")}
+          title={t("home.weeklyBooks")}
           books={popularBooks}
           onPickBook={onPickBook}
-          actionLabel={t("home:browse")}
+          actionLabel={t("home.browse")}
           onAction={onRequestDiscover}
           pulseBooks={pulseBooks}
         />
@@ -262,15 +294,15 @@ export const HomeScreen = ({
       {activeTab === "reviews" ? (
         <>
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>{t("home:featuredReviews")}</Text>
+            <Text style={styles.sectionTitle}>{t("home.featuredReviews")}</Text>
             <Pressable onPress={onRequestActivity}>
-              <Text style={styles.linkText}>{t("home:activity")}</Text>
+              <Text style={styles.linkText}>{t("home.activity")}</Text>
             </Pressable>
           </View>
 
           {reviewFeed.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>{t("home:emptyReviews")}</Text>
+              <Text style={styles.emptyTitle}>{t("home.emptyReviews")}</Text>
             </View>
           ) : (
             reviewFeed.map((item) => (
@@ -288,16 +320,16 @@ export const HomeScreen = ({
       {activeTab === "lists" ? (
         <>
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>{t("home:yourLists")}</Text>
+            <Text style={styles.sectionTitle}>{t("home.yourLists")}</Text>
             <Pressable onPress={onRequestProfile}>
-              <Text style={styles.linkText}>{t("home:profile")}</Text>
+              <Text style={styles.linkText}>{t("home.profile")}</Text>
             </Pressable>
           </View>
 
           <View style={styles.shelfGrid}>
             {shelfEntries.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>Sem listas ainda.</Text>
+                <Text style={styles.emptyTitle}>{t("home.emptyLists")}</Text>
               </View>
             ) : (
               shelfEntries.map(([status, total]) => (
@@ -311,7 +343,7 @@ export const HomeScreen = ({
 
           {stats?.topGenres?.length ? (
             <View style={styles.genrePanel}>
-              <Text style={styles.genreTitle}>{t("shelf:genres")}</Text>
+              <Text style={styles.genreTitle}>{t("shelf.genres")}</Text>
               {stats.topGenres.map((genre) => (
                 <View key={genre.genre} style={styles.genreRow}>
                   <Text style={styles.genreName}>{genre.genre}</Text>
@@ -326,15 +358,15 @@ export const HomeScreen = ({
       {activeTab === "journal" ? (
         <>
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>{t("home:recentJournal")}</Text>
+            <Text style={styles.sectionTitle}>{t("home.recentJournal")}</Text>
             <Pressable onPress={onRequestProfile}>
-              <Text style={styles.linkText}>{t("home:diary")}</Text>
+              <Text style={styles.linkText}>{t("home.diary")}</Text>
             </Pressable>
           </View>
 
           {journalFeed.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>{t("home:emptyJournal")}</Text>
+              <Text style={styles.emptyTitle}>{t("home.emptyJournal")}</Text>
             </View>
           ) : (
             journalFeed.map((item) => (
@@ -425,8 +457,8 @@ const styles = StyleSheet.create({
     padding: 20
   },
   verseHeader: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
     gap: 12,
     marginBottom: 14
   },
@@ -438,15 +470,15 @@ const styles = StyleSheet.create({
     textTransform: "uppercase"
   },
   verseDivider: {
+    backgroundColor: COLORS.border,
     flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border
+    height: 1
   },
   verseText: {
     color: COLORS.text,
     fontSize: 16,
-    fontWeight: "600",
     fontStyle: "italic",
+    fontWeight: "600",
     lineHeight: 24,
     marginBottom: 10
   },
@@ -457,13 +489,13 @@ const styles = StyleSheet.create({
   },
   verseButton: {
     alignSelf: "flex-start",
-    marginTop: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
     backgroundColor: COLORS.panelMuted,
+    borderColor: COLORS.border,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10
   },
   verseButtonText: {
     color: COLORS.textSoft,
@@ -511,16 +543,16 @@ const styles = StyleSheet.create({
     width: "100%"
   },
   pulseBadge: {
-    position: "absolute",
+    backgroundColor: "rgba(15, 17, 23, 0.92)",
+    borderColor: COLORS.borderStrong,
+    borderRadius: 12,
+    borderWidth: 1,
     bottom: 8,
     left: 8,
-    right: 8,
-    backgroundColor: "rgba(15, 17, 23, 0.92)",
-    borderRadius: 12,
-    paddingVertical: 6,
     paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: COLORS.borderStrong
+    paddingVertical: 6,
+    position: "absolute",
+    right: 8
   },
   pulseBadgeText: {
     color: COLORS.accent,

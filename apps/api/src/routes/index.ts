@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { activityController } from "../controllers/activity.controller";
+import { activityController, updateActivityController } from "../controllers/activity.controller";
 import { bookDetailController } from "../controllers/book-detail.controller";
 import { communityPulseController, communityVerseController } from "../controllers/community.controller";
 import { featuredBooksController } from "../controllers/discover.controller";
@@ -42,6 +42,12 @@ apiRouter.post(
   requireAuth,
   requirePremiumForExclusiveTheme,
   asyncHandler(activityController)
+);
+apiRouter.put(
+  "/activity/:activityId",
+  requireAuth,
+  requirePremiumForExclusiveTheme,
+  asyncHandler(updateActivityController)
 );
 apiRouter.get("/share/:activityId", asyncHandler(shareController));
 apiRouter.get("/api/share/:activityId", asyncHandler(shareController));

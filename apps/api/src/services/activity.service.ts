@@ -66,6 +66,16 @@ const buildShareCardInput = (payload: ActivityShareRow): ShareCardRenderInput =>
   showExcerpt: payload.showExcerpt
 });
 
+const resolveStoredBook = async ({
+  book,
+  bookId
+}: {
+  book?: BookInput;
+  bookId?: string;
+}) => {
+  return bookId ? await findBookByIdOrThrow(bookId) : book ? await upsertBook(book) : null;
+};
+
 const insertActivityWithStreak = async ({
   userId,
   bookId,
@@ -226,6 +236,93 @@ const findActivityShareRow = async (activityId: string): Promise<ActivityShareRo
   return rows[0] ?? null;
 };
 
+const updateStoredActivity = async ({
+  activityId,
+  userId,
+  bookId,
+  type,
+  rating,
+  reviewText,
+  normalizedReadAt,
+  normalizedTheme,
+  showExcerpt
+}: {
+  activityId: string;
+  userId: string;
+  bookId: string;
+  type: ActivityType;
+  rating: number | null;
+  reviewText: string | null;
+  normalizedReadAt: string | null;
+  normalizedTheme: CardThemeName;
+  showExcerpt: boolean;
+}): Promise<ActivityRow> => {
+  if (env.DATA_PROVIDER === "memory") {
+    const updatedActivity = memoryStore.updateActivity({
+      activityId,
+      userId,
+      bookId,
+      type,
+      rating,
+      reviewText,
+      readAt: normalizedReadAt,
+      cardTheme: normalizedTheme,
+      showExcerpt
+    });
+
+    if (!updatedActivity) {
+      throw new HttpError(404, "Atividade nÃ£o encontrada.", "activity_not_found");
+    }
+
+    return updatedActivity;
+  }
+
+  const { rows } = await pool.query<ActivityRow>(
+    `
+      update activities
+      set
+        book_id = $3,
+        type = $4,
+        rating = $5,
+        review_text = $6,
+        read_at = $7,
+        card_theme = $8,
+        show_excerpt = $9,
+        updated_at = now()
+      where id = $1
+        and user_id = $2
+      returning
+        id,
+        user_id as "userId",
+        book_id as "bookId",
+        type,
+        rating,
+        review_text as "reviewText",
+        read_at as "readAt",
+        card_theme as "cardTheme",
+        show_excerpt as "showExcerpt",
+        created_at as "createdAt"
+    `,
+    [
+      activityId,
+      userId,
+      bookId,
+      type,
+      rating,
+      reviewText,
+      normalizedReadAt,
+      normalizedTheme,
+      showExcerpt
+    ]
+  );
+
+  if (!rows[0]) {
+    throw new HttpError(404, "Atividade nÃ£o encontrada.", "activity_not_found");
+  }
+
+  return rows[0];
+};
+
 export const registerActivity = async ({
   userId,
   type,
@@ -235,7 +332,8 @@ export const registerActivity = async ({
   cardTheme,
   showExcerpt,
   bookId,
-  book
+  book,
+  locale
 }: {
   userId: string;
   type: ActivityType;
@@ -246,6 +344,7 @@ export const registerActivity = async ({
   showExcerpt?: boolean;
   bookId?: string;
   book?: BookInput;
+  locale?: string | null;
 }) => {
   const user = await findUserById(userId);
 
@@ -253,11 +352,7 @@ export const registerActivity = async ({
     throw new HttpError(404, "Usuário não encontrado.", "user_not_found");
   }
 
-  const storedBook = bookId
-    ? await findBookByIdOrThrow(bookId)
-    : book
-      ? await upsertBook(book)
-      : null;
+  const storedBook = await resolveStoredBook({ book, bookId });
 
   if (!storedBook) {
     throw new HttpError(400, "Envie um `bookId` ou o payload do livro.", "book_required");
@@ -287,6 +382,7 @@ export const registerActivity = async ({
     coverUrl: storedBook.coverUrl,
     rating: result.activity.rating,
     excerpt: result.activity.reviewText,
+    locale,
     theme: normalizedTheme,
     showExcerpt: normalizedShowExcerpt
   });
@@ -299,12 +395,90 @@ export const registerActivity = async ({
   };
 };
 
-export const getActivityShareCard = async (activityId: string) => {
+export const updateActivity = async ({
+  activityId,
+  userId,
+  type,
+  rating,
+  reviewText,
+  readAt,
+  cardTheme,
+  showExcerpt,
+  bookId,
+  book,
+  locale
+}: {
+  activityId: string;
+  userId: string;
+  type: ActivityType;
+  rating?: number | null;
+  reviewText?: string | null;
+  readAt?: Date | null;
+  cardTheme?: CardThemeName;
+  showExcerpt?: boolean;
+  bookId?: string;
+  book?: BookInput;
+  locale?: string | null;
+}) => {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    throw new HttpError(404, "UsuÃ¡rio nÃ£o encontrado.", "user_not_found");
+  }
+
+  const storedBook = await resolveStoredBook({ book, bookId });
+
+  if (!storedBook) {
+    throw new HttpError(400, "Envie um `bookId` ou o payload do livro.", "book_required");
+  }
+
+  const normalizedReadAt = readAt ? readAt.toISOString().slice(0, 10) : null;
+  const normalizedTheme = cardTheme ?? DEFAULT_CARD_THEME;
+  const normalizedShowExcerpt = showExcerpt ?? true;
+  const activity = await updateStoredActivity({
+    activityId,
+    userId,
+    bookId: storedBook.id,
+    type,
+    rating: rating ?? null,
+    reviewText: reviewText ?? null,
+    normalizedReadAt,
+    normalizedTheme,
+    showExcerpt: normalizedShowExcerpt
+  });
+
+  const shareCard = await buildStoryCardPreview({
+    activityId: activity.id,
+    title: storedBook.title,
+    author: storedBook.author,
+    coverUrl: storedBook.coverUrl,
+    rating: activity.rating,
+    excerpt: activity.reviewText,
+    locale,
+    theme: normalizedTheme,
+    showExcerpt: normalizedShowExcerpt
+  });
+
+  return {
+    activity,
+    book: storedBook,
+    streak: {
+      currentStreak: user.currentStreak,
+      lastReadDate: user.lastReadDate
+    },
+    shareCard
+  };
+};
+
+export const getActivityShareCard = async (activityId: string, locale?: string | null) => {
   const activity = await findActivityShareRow(activityId);
 
   if (!activity) {
     throw new HttpError(404, "Atividade não encontrada.", "activity_not_found");
   }
 
-  return buildStoryCardImage(buildShareCardInput(activity));
+  return buildStoryCardImage({
+    ...buildShareCardInput(activity),
+    locale
+  });
 };

@@ -9,7 +9,7 @@ const shareParamsSchema = z.object({
 
 export const shareController = async (request: Request, response: Response) => {
   const { activityId } = shareParamsSchema.parse(request.params);
-  const image = await getActivityShareCard(activityId);
+  const image = await getActivityShareCard(activityId, request.language);
 
   response.setHeader("Content-Type", image.contentType);
   response.setHeader("Cache-Control", "no-store");

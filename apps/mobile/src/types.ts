@@ -44,6 +44,17 @@ export interface BookDetailReview {
   cardTheme: CardThemeName;
 }
 
+export interface ViewerBookActivity {
+  activityId: string;
+  type: ActivityType;
+  rating: number | null;
+  reviewText: string | null;
+  readAt: string | null;
+  createdAt: string;
+  cardTheme: CardThemeName;
+  showExcerpt: boolean;
+}
+
 export interface BookDetailPayload {
   book: BookSearchResult & {
     description: string | null;
@@ -63,6 +74,7 @@ export interface BookDetailPayload {
   };
   reviews: BookDetailReview[];
   similarBooks: BookSearchResult[];
+  viewerActivity: ViewerBookActivity | null;
 }
 
 export interface ShareCardResult {

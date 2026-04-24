@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { loadFeed, loadStats } from "../api/client";
 import { FeedEntryCard } from "../components/FeedEntryCard";
@@ -9,20 +10,6 @@ import { COLORS } from "../theme";
 import type { FeedItem, StatsPayload } from "../types";
 
 type ProfileTab = "profile" | "diary" | "lists" | "watchlist";
-
-const profileTabs: Array<{ key: ProfileTab; label: string }> = [
-  { key: "profile", label: "Profile" },
-  { key: "diary", label: "Diary" },
-  { key: "lists", label: "Lists" },
-  { key: "watchlist", label: "Watchlist" }
-];
-
-const statusLabelMap: Record<string, string> = {
-  lendo: "Lendo",
-  lido: "Finalizados",
-  abandonado: "Abandonados",
-  quero_ler: "Na fila"
-};
 
 export const ProfileScreen = ({
   currentStreak,
@@ -43,12 +30,33 @@ export const ProfileScreen = ({
   onOpenBook: (item: FeedItem) => void;
   refreshKey: number;
 }) => {
+  const { i18n, t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ProfileTab>("profile");
   const [mode, setMode] = useState<"basic" | "advanced">("basic");
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [selfFeed, setSelfFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const profileTabs = useMemo<Array<{ key: ProfileTab; label: string }>>(
+    () => [
+      { key: "profile", label: t("profile.tabs.profile") },
+      { key: "diary", label: t("profile.tabs.diary") },
+      { key: "lists", label: t("profile.tabs.lists") },
+      { key: "watchlist", label: t("profile.tabs.watchlist") }
+    ],
+    [t]
+  );
+
+  const statusLabelMap: Record<string, string> = useMemo(
+    () => ({
+      lendo: t("profile.status.reading"),
+      lido: t("profile.status.finished"),
+      abandonado: t("profile.status.abandoned"),
+      quero_ler: t("profile.status.queued")
+    }),
+    [t]
+  );
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -64,30 +72,32 @@ export const ProfileScreen = ({
       setSelfFeed(feedResult.status === "fulfilled" ? feedResult.value : []);
 
       if (statsResult.status === "rejected" && feedResult.status === "rejected") {
-        setError("Não foi possível carregar o perfil.");
+        setError(t("profile.errors.loadFailed"));
       } else if (statsResult.status === "rejected") {
-        setError("As métricas do perfil falharam ao carregar.");
+        setError(t("profile.errors.statsFailed"));
       } else if (feedResult.status === "rejected") {
-        setError("O diário do perfil falhou ao carregar.");
+        setError(t("profile.errors.diaryFailed"));
       }
 
       setLoading(false);
     };
 
     void fetchProfile();
-  }, [mode, refreshKey, viewerId]);
+  }, [i18n.language, mode, refreshKey, viewerId]);
 
   const maxGenreCount = Math.max(...(stats?.topGenres.map((genre) => genre.total) ?? [1]));
   const viewerInitial = viewerUsername.charAt(0).toUpperCase();
   const diaryEntries = selfFeed.filter((item) => item.type !== "quero_ler");
   const watchlistEntries = selfFeed.filter((item) => item.type === "quero_ler");
-  const listEntries = Object.entries(stats?.statuses ?? {}).sort(
-    (left, right) => right[1] - left[1]
-  );
+  const listEntries = Object.entries(stats?.statuses ?? {}).sort((left, right) => right[1] - left[1]);
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <SectionHeader eyebrow="Perfil" title="Seu perfil" subtitle={`@${viewerUsername}`} />
+      <SectionHeader
+        eyebrow={t("profile.eyebrow")}
+        title={t("profile.title")}
+        subtitle={`@${viewerUsername}`}
+      />
 
       <View style={styles.profileHero}>
         <View style={styles.avatar}>
@@ -97,12 +107,14 @@ export const ProfileScreen = ({
         <View style={styles.profileCopy}>
           <Text style={styles.profileName}>@{viewerUsername}</Text>
           <Text style={styles.profileMeta}>
-            {viewerPremium ? "Membro do Clube" : "Plano Básico"}
+            {viewerPremium ? t("profile.membership.premium") : t("profile.membership.basic")}
           </Text>
           <View style={styles.metaRow}>
             <View style={styles.metaChip}>
               <Text style={styles.metaChipText}>
-                {currentStreak > 0 ? `${currentStreak} dias de ofensiva` : "Sem ofensiva ativa"}
+                {currentStreak > 0
+                  ? t("profile.streak.active", { count: currentStreak })
+                  : t("profile.streak.inactive")}
               </Text>
             </View>
           </View>
@@ -111,7 +123,7 @@ export const ProfileScreen = ({
 
       <SubTabBar options={profileTabs} value={activeTab} onChange={setActiveTab} />
 
-      {loading ? <Text style={styles.loadingText}>Carregando perfil...</Text> : null}
+      {loading ? <Text style={styles.loadingText}>{t("profile.loading")}</Text> : null}
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
@@ -126,10 +138,10 @@ export const ProfileScreen = ({
               style={[styles.modeButton, mode === "basic" && styles.modeButtonActive]}
             >
               <Text style={[styles.modeButtonHint, mode === "basic" && styles.modeButtonHintActive]}>
-                visão
+                {t("profile.mode.basicHint")}
               </Text>
               <Text style={[styles.modeButtonText, mode === "basic" && styles.modeButtonTextActive]}>
-                Resumo
+                {t("profile.mode.basicTitle")}
               </Text>
             </Pressable>
             <Pressable
@@ -139,19 +151,19 @@ export const ProfileScreen = ({
               <Text
                 style={[styles.modeButtonHint, mode === "advanced" && styles.modeButtonHintActive]}
               >
-                premium
+                {t("profile.mode.advancedHint")}
               </Text>
               <Text
                 style={[styles.modeButtonText, mode === "advanced" && styles.modeButtonTextActive]}
               >
-                Análise
+                {t("profile.mode.advancedTitle")}
               </Text>
             </Pressable>
           </View>
 
           {!viewerPremium && mode === "advanced" ? (
             <View style={styles.warningCard}>
-              <Text style={styles.warningText}>Premium indisponível</Text>
+              <Text style={styles.warningText}>{t("profile.premiumUnavailable")}</Text>
             </View>
           ) : null}
 
@@ -160,33 +172,33 @@ export const ProfileScreen = ({
               <View style={styles.metricRow}>
                 <View style={styles.metricCard}>
                   <Text style={styles.metricValue}>{stats.summary.booksRead}</Text>
-                  <Text style={styles.metricLabel}>livros lidos</Text>
+                  <Text style={styles.metricLabel}>{t("profile.metrics.booksRead")}</Text>
                 </View>
                 <View style={styles.metricCard}>
                   <Text style={styles.metricValue}>{stats.summary.pagesRead}</Text>
-                  <Text style={styles.metricLabel}>páginas</Text>
+                  <Text style={styles.metricLabel}>{t("profile.metrics.pagesRead")}</Text>
                 </View>
                 <View style={styles.metricCard}>
                   <Text style={styles.metricValue}>{stats.summary.averageDaysToFinish || "-"}</Text>
-                  <Text style={styles.metricLabel}>média de dias</Text>
+                  <Text style={styles.metricLabel}>{t("profile.metrics.averageDays")}</Text>
                 </View>
               </View>
 
               {stats.advanced ? (
                 <View style={styles.panel}>
-                  <Text style={styles.panelTitle}>Camada premium</Text>
+                  <Text style={styles.panelTitle}>{t("profile.premiumLayer")}</Text>
                   <View style={styles.advancedGrid}>
                     <View style={styles.advancedCard}>
                       <Text style={styles.advancedValue}>{stats.advanced.averageRating}</Text>
-                      <Text style={styles.advancedLabel}>nota média</Text>
+                      <Text style={styles.advancedLabel}>{t("profile.advanced.averageRating")}</Text>
                     </View>
                     <View style={styles.advancedCard}>
                       <Text style={styles.advancedValue}>{stats.advanced.completionRate}%</Text>
-                      <Text style={styles.advancedLabel}>conclusão</Text>
+                      <Text style={styles.advancedLabel}>{t("profile.advanced.completionRate")}</Text>
                     </View>
                     <View style={styles.advancedCard}>
                       <Text style={styles.advancedValue}>{stats.advanced.monthlyPace}</Text>
-                      <Text style={styles.advancedLabel}>últimos 30 dias</Text>
+                      <Text style={styles.advancedLabel}>{t("profile.advanced.monthlyPace")}</Text>
                     </View>
                   </View>
                 </View>
@@ -199,9 +211,9 @@ export const ProfileScreen = ({
       {activeTab === "diary" ? (
         diaryEntries.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Sem diary</Text>
+            <Text style={styles.emptyTitle}>{t("profile.emptyDiary")}</Text>
             <Pressable style={styles.emptyAction} onPress={onRequestPost}>
-              <Text style={styles.emptyActionText}>Postar leitura</Text>
+              <Text style={styles.emptyActionText}>{t("profile.postReading")}</Text>
             </Pressable>
           </View>
         ) : (
@@ -220,7 +232,7 @@ export const ProfileScreen = ({
       {activeTab === "lists" ? (
         <>
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Estados da estante</Text>
+            <Text style={styles.panelTitle}>{t("profile.shelfStates")}</Text>
             <View style={styles.stateRow}>
               {listEntries.map(([status, total]) => (
                 <View key={status} style={styles.stateCard}>
@@ -232,7 +244,7 @@ export const ProfileScreen = ({
           </View>
 
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Gêneros que puxam o perfil</Text>
+            <Text style={styles.panelTitle}>{t("profile.topGenres")}</Text>
             {stats?.topGenres.length ? (
               stats.topGenres.map((genre) => (
                 <View key={genre.genre} style={styles.genreRow}>
@@ -251,7 +263,7 @@ export const ProfileScreen = ({
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyText}>Nenhum gênero consolidado ainda.</Text>
+              <Text style={styles.emptyText}>{t("profile.noGenres")}</Text>
             )}
           </View>
         </>
@@ -260,9 +272,9 @@ export const ProfileScreen = ({
       {activeTab === "watchlist" ? (
         watchlistEntries.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Sem watchlist</Text>
+            <Text style={styles.emptyTitle}>{t("profile.emptyWatchlist")}</Text>
             <Pressable style={styles.emptyAction} onPress={onRequestDiscover}>
-              <Text style={styles.emptyActionText}>Abrir busca</Text>
+              <Text style={styles.emptyActionText}>{t("profile.openSearch")}</Text>
             </Pressable>
           </View>
         ) : (
