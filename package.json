@@ -1,0 +1,21 @@
+{
+  "name": "book-boxd-brasil",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace @book-boxd/api run dev",
+    "dev:mobile": "npm --workspace @book-boxd/mobile run start",
+    "db:migrate": "npm --workspace @book-boxd/api run db:migrate",
+    "db:seed": "npm --workspace @book-boxd/api run db:seed",
+    "db:setup": "npm --workspace @book-boxd/api run db:setup",
+    "typecheck": "npm --workspace @book-boxd/api run typecheck && npm --workspace @book-boxd/mobile run typecheck"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.10"
+  }
+}

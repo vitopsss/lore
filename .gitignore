@@ -1,0 +1,11 @@
+node_modules
+dist
+.expo
+.env
+*.log
+coverage
+generated-cards
+apps/api/.env
+apps/mobile/.env
+run_logs
+CONTEXTO_PROXIMA_CONVERSA.md
