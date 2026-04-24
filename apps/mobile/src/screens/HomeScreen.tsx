@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { loadDailyVerse, loadFeed, loadFeaturedBooks, loadNowReadingPulse, loadStats } from "../api/client";
 import { FeedEntryCard } from "../components/FeedEntryCard";
@@ -44,6 +45,8 @@ const DailyVerse = ({
   verse: DailyVerseData | null;
   onShare?: () => void;
 }) => {
+  const { t } = useTranslation();
+
   if (!verse) {
     return null;
   }
@@ -51,7 +54,7 @@ const DailyVerse = ({
   return (
     <View style={styles.verseCard}>
       <View style={styles.verseHeader}>
-        <Text style={styles.verseEyebrow}>O Verso do Dia</Text>
+        <Text style={styles.verseEyebrow}>{t("community:dailyVerse")}</Text>
         <View style={styles.verseDivider} />
       </View>
       <Text style={styles.verseText}>"{verse.quote}"</Text>
@@ -60,7 +63,7 @@ const DailyVerse = ({
       </Text>
       {onShare ? (
         <Pressable onPress={onShare} style={styles.verseButton}>
-          <Text style={styles.verseButtonText}>Compartilhar Insight</Text>
+          <Text style={styles.verseButtonText}>{t("community:shareInsight")}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -210,15 +213,17 @@ export const HomeScreen = ({
   const journalFeed = selfFeed.filter((item) => item.type !== "quero_ler").slice(0, 6);
   const shelfEntries = Object.entries(stats?.statuses ?? {}).sort((left, right) => right[1] - left[1]);
 
+  const { t } = useTranslation();
+
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <SectionHeader eyebrow="Home" title={`Em alta para @${viewerUsername}`} />
+      <SectionHeader eyebrow={t("home:eyebrow")} title={t("home:title", { username: viewerUsername })} />
 
       <DailyVerse verse={dailyVerse} onShare={() => {}} />
 
       <SubTabBar options={homeTabs} value={activeTab} onChange={setActiveTab} />
 
-      {loading ? <Text style={styles.loadingText}>Montando a home...</Text> : null}
+      {loading ? <Text style={styles.loadingText}>{t("common:loading")}</Text> : null}
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
@@ -227,10 +232,10 @@ export const HomeScreen = ({
 
       {activeTab === "popular" ? (
         <BookRail
-          title="Livros da semana"
+          title={t("home:weeklyBooks")}
           books={popularBooks}
           onPickBook={onPickBook}
-          actionLabel="browse"
+          actionLabel={t("home:browse")}
           onAction={onRequestDiscover}
           pulseBooks={pulseBooks}
         />
@@ -239,15 +244,15 @@ export const HomeScreen = ({
       {activeTab === "reviews" ? (
         <>
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Reviews em destaque</Text>
+            <Text style={styles.sectionTitle}>{t("home:featuredReviews")}</Text>
             <Pressable onPress={onRequestActivity}>
-              <Text style={styles.linkText}>activity</Text>
+              <Text style={styles.linkText}>{t("home:activity")}</Text>
             </Pressable>
           </View>
 
           {reviewFeed.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Sem reviews em destaque ainda.</Text>
+              <Text style={styles.emptyTitle}>{t("home:emptyReviews")}</Text>
             </View>
           ) : (
             reviewFeed.map((item) => (
@@ -265,9 +270,9 @@ export const HomeScreen = ({
       {activeTab === "lists" ? (
         <>
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Suas listas e estantes</Text>
+            <Text style={styles.sectionTitle}>{t("home:yourLists")}</Text>
             <Pressable onPress={onRequestProfile}>
-              <Text style={styles.linkText}>perfil</Text>
+              <Text style={styles.linkText}>{t("home:profile")}</Text>
             </Pressable>
           </View>
 
@@ -288,7 +293,7 @@ export const HomeScreen = ({
 
           {stats?.topGenres?.length ? (
             <View style={styles.genrePanel}>
-              <Text style={styles.genreTitle}>Gêneros do perfil</Text>
+              <Text style={styles.genreTitle}>{t("shelf:genres")}</Text>
               {stats.topGenres.map((genre) => (
                 <View key={genre.genre} style={styles.genreRow}>
                   <Text style={styles.genreName}>{genre.genre}</Text>
@@ -303,15 +308,15 @@ export const HomeScreen = ({
       {activeTab === "journal" ? (
         <>
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Seu journal recente</Text>
+            <Text style={styles.sectionTitle}>{t("home:recentJournal")}</Text>
             <Pressable onPress={onRequestProfile}>
-              <Text style={styles.linkText}>diary</Text>
+              <Text style={styles.linkText}>{t("home:diary")}</Text>
             </Pressable>
           </View>
 
           {journalFeed.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Sem journal ainda.</Text>
+              <Text style={styles.emptyTitle}>{t("home:emptyJournal")}</Text>
             </View>
           ) : (
             journalFeed.map((item) => (

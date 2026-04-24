@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "../config";
+import { getCurrentLanguage } from "../i18n";
 import { getPreferredCatalogLanguage } from "../lib/catalog-language";
 import type {
   ActivityCreationResult,
@@ -40,6 +41,7 @@ const request = async <T>(
 ): Promise<T> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "Accept-Language": getCurrentLanguage(),
     ...(options?.headers as Record<string, string> | undefined)
   };
 

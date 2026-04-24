@@ -10,7 +10,9 @@ const discoverQuerySchema = z.object({
 
 export const featuredBooksController = async (request: Request, response: Response) => {
   const { language, mode } = discoverQuerySchema.parse(request.query);
-  const books = await getFeaturedBooks(language ?? "pt", mode ?? "popular");
+
+  const requestLanguage = request.language ?? "pt";
+  const books = await getFeaturedBooks(language ?? requestLanguage, mode ?? "popular");
 
   response.json({
     data: books

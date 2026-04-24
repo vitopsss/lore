@@ -1,0 +1,58 @@
+{
+  "common": {
+    "loading": "Carregando...",
+    "error": "Erro",
+    "retry": "Tentar novamente",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "close": "Fechar"
+  },
+  "home": {
+    "eyebrow": "Home",
+    "title": "Em alta para @{{username}}",
+    "popularTab": "Popular",
+    "reviewsTab": "Reviews",
+    "listsTab": "Lists",
+    "journalTab": "Journal",
+    "featuredReviews": "Reviews em destaque",
+    "yourLists": "Suas listas e estantes",
+    "weeklyBooks": "Livros da semana",
+    "recentJournal": "Seu journal recente",
+    "emptyReviews": "Sem reviews em destaque ainda.",
+    "emptyLists": "Sem listas ainda.",
+    "emptyJournal": "Sem journal ainda.",
+    "browse": "browse",
+    "activity": "activity",
+    "profile": "perfil",
+    "diary": "diary"
+  },
+  "shelf": {
+    "wantToRead": "Watchlist",
+    "reading": "Em andamento",
+    "completed": "Concluídos",
+    "abandoned": "Abandonados",
+    "genres": "Gêneros do perfil"
+  },
+  "community": {
+    "dailyVerse": "O Verso do Dia",
+    "shareInsight": "Compartilhar Insight",
+    "peopleReading": "{{count}} pessoa lendo agora",
+    "peopleReading_plural": "{{count}} pessoas lendo agora"
+  },
+  "search": {
+    "placeholder": "Buscar livros...",
+    "noResults": "Nenhum resultado encontrado",
+    "filters": "Filtros"
+  },
+  "book": {
+    "details": "Detalhes do livro",
+    "author": "Autor",
+    "pages": "páginas",
+    "categories": "Categorias",
+    "communityRating": "Nota da comunidade",
+    "reviewsCount": "{{count}} review",
+    "reviewsCount_plural": "{{count}} reviews"
+  }
+}

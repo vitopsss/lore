@@ -1,5 +1,6 @@
 import "react-native-url-polyfill/auto";
 
+import "./src/i18n";
 import { useEffect, useState } from "react";
 import {
   Image,

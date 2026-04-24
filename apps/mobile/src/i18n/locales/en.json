@@ -1,0 +1,58 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close"
+  },
+  "home": {
+    "eyebrow": "Home",
+    "title": "Trending for @{{username}}",
+    "popularTab": "Popular",
+    "reviewsTab": "Reviews",
+    "listsTab": "Lists",
+    "journalTab": "Journal",
+    "featuredReviews": "Featured Reviews",
+    "yourLists": "Your Lists & Shelves",
+    "weeklyBooks": "This Week's Books",
+    "recentJournal": "Recent Journal",
+    "emptyReviews": "No featured reviews yet.",
+    "emptyLists": "No lists yet.",
+    "emptyJournal": "No journal yet.",
+    "browse": "browse",
+    "activity": "activity",
+    "profile": "profile",
+    "diary": "diary"
+  },
+  "shelf": {
+    "wantToRead": "Want to Read",
+    "reading": "Reading",
+    "completed": "Completed",
+    "abandoned": "Abandoned",
+    "genres": "Top Genres"
+  },
+  "community": {
+    "dailyVerse": "Daily Verse",
+    "shareInsight": "Share Insight",
+    "peopleReading": "{{count}} person reading now",
+    "peopleReading_plural": "{{count}} people reading now"
+  },
+  "search": {
+    "placeholder": "Search books...",
+    "noResults": "No results found",
+    "filters": "Filters"
+  },
+  "book": {
+    "details": "Book Details",
+    "author": "Author",
+    "pages": "pages",
+    "categories": "Categories",
+    "communityRating": "Community Rating",
+    "reviewsCount": "{{count}} review",
+    "reviewsCount_plural": "{{count}} reviews"
+  }
+}
