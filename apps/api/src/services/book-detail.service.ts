@@ -1,39 +1,20 @@
 import { env } from "../config/env";
 import { memoryStore } from "../db/memory-store";
 import { pool } from "../db/pool";
+import { normalizeCatalogLanguage } from "../lib/catalog-search";
 import { HttpError } from "../lib/http-error";
 import type { BookInput } from "../types/domain";
 
 import { buildAmazonAffiliateLink } from "./amazon-affiliate.service";
-import { getGoogleBookById, searchCatalogBooks } from "./google-books.service";
+import {
+  findLocalizedGoogleVolume,
+  getGoogleBookById,
+  searchCatalogBooks,
+  type GoogleBookVolume
+} from "./google-books.service";
 import { getOpenLibraryBookById, isOpenLibraryBookId } from "./open-library.service";
 
-interface GoogleBookDetailResponse {
-  id: string;
-  volumeInfo: {
-    title?: string;
-    authors?: string[];
-    description?: string;
-    language?: string;
-    publishedDate?: string;
-    publisher?: string;
-    averageRating?: number;
-    ratingsCount?: number;
-    imageLinks?: {
-      extraLarge?: string;
-      large?: string;
-      medium?: string;
-      thumbnail?: string;
-      smallThumbnail?: string;
-    };
-    industryIdentifiers?: Array<{
-      type: string;
-      identifier: string;
-    }>;
-    pageCount?: number;
-    categories?: string[];
-  };
-}
+interface GoogleBookDetailResponse extends GoogleBookVolume {}
 
 interface OpenLibraryEditionResponse {
   key?: string;
@@ -138,7 +119,7 @@ const extractPreferredIsbn = (identifiers?: string[]) => {
   );
 };
 
-const extractGoogleIsbn = (payload: GoogleBookDetailResponse) =>
+const extractGoogleIsbn = (payload: Pick<GoogleBookVolume, "volumeInfo">) =>
   payload.volumeInfo.industryIdentifiers?.find((identifier) => identifier.type === "ISBN_13")
     ?.identifier ??
   payload.volumeInfo.industryIdentifiers?.find((identifier) => identifier.type === "ISBN_10")
@@ -168,6 +149,63 @@ const sanitizeSynopsis = (value?: string | null) => {
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
+};
+
+const mapGoogleVolumeToDetail = (
+  payload: GoogleBookDetailResponse | GoogleBookVolume,
+  fallback?: Partial<CatalogBookDetail>
+): CatalogBookDetail => {
+  const isbn = extractGoogleIsbn(payload) ?? fallback?.isbn ?? null;
+
+  return {
+    googleId: fallback?.googleId ?? payload.id,
+    title: payload.volumeInfo.title?.trim() || fallback?.title || "Título indisponível",
+    author: payload.volumeInfo.authors?.join(", ") ?? fallback?.author ?? "Autor desconhecido",
+    coverUrl:
+      normalizeCoverUrl(
+        payload.volumeInfo.imageLinks?.extraLarge ??
+          payload.volumeInfo.imageLinks?.large ??
+          payload.volumeInfo.imageLinks?.medium ??
+          payload.volumeInfo.imageLinks?.thumbnail ??
+          payload.volumeInfo.imageLinks?.smallThumbnail
+      ) ??
+      fallback?.coverUrl ??
+      null,
+    isbn,
+    pageCount: payload.volumeInfo.pageCount ?? fallback?.pageCount ?? null,
+    categories: payload.volumeInfo.categories ?? fallback?.categories ?? [],
+    amazonAffiliateLink: buildAmazonAffiliateLink(isbn, fallback?.amazonAffiliateLink ?? undefined),
+    description: sanitizeSynopsis(payload.volumeInfo.description) ?? fallback?.description ?? null,
+    publishedDate: payload.volumeInfo.publishedDate ?? fallback?.publishedDate ?? null,
+    publisher: payload.volumeInfo.publisher ?? fallback?.publisher ?? null,
+    language: payload.volumeInfo.language ?? fallback?.language ?? null,
+    externalAverageRating:
+      payload.volumeInfo.averageRating ?? fallback?.externalAverageRating ?? null,
+    externalRatingsCount:
+      payload.volumeInfo.ratingsCount ?? fallback?.externalRatingsCount ?? null
+  };
+};
+
+const applyLocalizedSynopsis = (
+  detail: CatalogBookDetail,
+  localizedVolume: GoogleBookVolume | null
+) => {
+  if (!localizedVolume) {
+    return detail;
+  }
+
+  return {
+    ...detail,
+    categories: localizedVolume.volumeInfo.categories ?? detail.categories,
+    description: sanitizeSynopsis(localizedVolume.volumeInfo.description) ?? detail.description,
+    publishedDate: localizedVolume.volumeInfo.publishedDate ?? detail.publishedDate,
+    publisher: localizedVolume.volumeInfo.publisher ?? detail.publisher,
+    language: localizedVolume.volumeInfo.language ?? detail.language,
+    externalAverageRating:
+      localizedVolume.volumeInfo.averageRating ?? detail.externalAverageRating,
+    externalRatingsCount:
+      localizedVolume.volumeInfo.ratingsCount ?? detail.externalRatingsCount
+  };
 };
 
 const normalizeOpenLibraryDescription = (
@@ -266,13 +304,26 @@ const resolveOpenLibraryAuthor = async (
   return author?.name?.trim() || fallbackAuthor;
 };
 
-const loadGoogleBookDetail = async (googleId: string): Promise<CatalogBookDetail> => {
+const loadGoogleBookDetail = async (
+  googleId: string,
+  preferredLanguage?: string
+): Promise<CatalogBookDetail> => {
+  const normalizedLanguage = normalizeCatalogLanguage(preferredLanguage);
   const response = await fetch(`${env.GOOGLE_BOOKS_BASE_URL}/volumes/${googleId}`);
 
   if (!response.ok) {
     const fallbackBook = await getGoogleBookById(googleId);
+    const localizedVolume = await findLocalizedGoogleVolume(
+      {
+        googleId,
+        isbn: fallbackBook.isbn ?? null,
+        title: fallbackBook.title,
+        author: fallbackBook.author
+      },
+      normalizedLanguage
+    );
 
-    return {
+    const fallbackDetail: CatalogBookDetail = {
       ...fallbackBook,
       coverUrl: fallbackBook.coverUrl ?? null,
       isbn: fallbackBook.isbn ?? null,
@@ -286,33 +337,32 @@ const loadGoogleBookDetail = async (googleId: string): Promise<CatalogBookDetail
       externalAverageRating: null,
       externalRatingsCount: null
     };
+
+    return applyLocalizedSynopsis(fallbackDetail, localizedVolume);
   }
 
   const payload = (await response.json()) as GoogleBookDetailResponse;
-  const isbn = extractGoogleIsbn(payload);
+  const detail = mapGoogleVolumeToDetail(payload);
+  const needsLocalizedSynopsis = Boolean(
+    normalizedLanguage &&
+      (!detail.description || !detail.language?.trim().toLowerCase().startsWith(normalizedLanguage))
+  );
 
-  return {
-    googleId: payload.id,
-    title: payload.volumeInfo.title?.trim() || "Título indisponível",
-    author: payload.volumeInfo.authors?.join(", ") ?? "Autor desconhecido",
-    coverUrl: normalizeCoverUrl(
-      payload.volumeInfo.imageLinks?.extraLarge ??
-        payload.volumeInfo.imageLinks?.large ??
-        payload.volumeInfo.imageLinks?.medium ??
-        payload.volumeInfo.imageLinks?.thumbnail ??
-        payload.volumeInfo.imageLinks?.smallThumbnail
-    ),
-    isbn,
-    pageCount: payload.volumeInfo.pageCount ?? null,
-    categories: payload.volumeInfo.categories ?? [],
-    amazonAffiliateLink: buildAmazonAffiliateLink(isbn),
-    description: sanitizeSynopsis(payload.volumeInfo.description),
-    publishedDate: payload.volumeInfo.publishedDate ?? null,
-    publisher: payload.volumeInfo.publisher ?? null,
-    language: payload.volumeInfo.language ?? null,
-    externalAverageRating: payload.volumeInfo.averageRating ?? null,
-    externalRatingsCount: payload.volumeInfo.ratingsCount ?? null
-  };
+  if (!needsLocalizedSynopsis) {
+    return detail;
+  }
+
+  const localizedVolume = await findLocalizedGoogleVolume(
+    {
+      googleId,
+      isbn: detail.isbn,
+      title: detail.title,
+      author: detail.author
+    },
+    normalizedLanguage
+  );
+
+  return applyLocalizedSynopsis(detail, localizedVolume);
 };
 
 const loadOpenLibraryBookDetail = async (bookId: string): Promise<CatalogBookDetail> => {
@@ -379,9 +429,13 @@ const dedupeBooks = (books: BookInput[], currentGoogleId: string) => {
   return [...uniqueBooks.values()];
 };
 
-const loadSimilarBooks = async (book: CatalogBookDetail) => {
+const loadSimilarBooks = async (
+  book: CatalogBookDetail,
+  preferredLanguage?: string
+) => {
   const requests: Array<Promise<BookInput[]>> = [];
-  const language = book.language?.trim() || undefined;
+  const language =
+    normalizeCatalogLanguage(preferredLanguage) ?? book.language?.trim() ?? undefined;
   const primaryCategory = book.categories[0]?.trim();
   const authorQuery = book.author.split(/,| e | and /i)[0]?.trim();
 
@@ -472,14 +526,17 @@ const loadBookCommunityDetails = async (
   };
 };
 
-export const getBookDetail = async (googleId: string): Promise<BookDetailPayload> => {
+export const getBookDetail = async (
+  googleId: string,
+  preferredLanguage?: string
+): Promise<BookDetailPayload> => {
   const book = isOpenLibraryBookId(googleId)
     ? await loadOpenLibraryBookDetail(googleId)
-    : await loadGoogleBookDetail(googleId);
+    : await loadGoogleBookDetail(googleId, preferredLanguage);
 
   const [community, similarBooks] = await Promise.all([
     loadBookCommunityDetails(googleId),
-    loadSimilarBooks(book)
+    loadSimilarBooks(book, preferredLanguage)
   ]);
 
   return {

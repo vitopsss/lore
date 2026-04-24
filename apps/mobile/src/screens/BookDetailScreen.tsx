@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { loadBookDetail } from "../api/client";
+import { BookCover } from "../components/BookCover";
 import { SectionHeader } from "../components/SectionHeader";
 import { SubTabBar } from "../components/SubTabBar";
 import { COLORS } from "../theme";
@@ -95,6 +96,8 @@ export const BookDetailScreen = ({
   const [detail, setDetail] = useState<BookDetailPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFullSynopsis, setShowFullSynopsis] = useState(false);
+  const [isSynopsisExpandable, setIsSynopsisExpandable] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
@@ -119,9 +122,15 @@ export const BookDetailScreen = ({
     void refresh();
   }, [book.googleId, viewerId]);
 
+  useEffect(() => {
+    setShowFullSynopsis(false);
+    setIsSynopsisExpandable(false);
+  }, [book.googleId]);
+
   const heroMeta = useMemo(() => buildHeroMeta(detail), [detail]);
   const summaryBook = detail?.book ?? book;
   const overviewSimilar = detail?.similarBooks.slice(0, 6) ?? [];
+  const synopsis = detail?.book.description?.trim() || "Sem sinopse disponível para esta edição.";
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -134,18 +143,14 @@ export const BookDetailScreen = ({
       <SectionHeader eyebrow="Livro" title={summaryBook.title} subtitle={summaryBook.author} />
 
       <View style={styles.hero}>
-        {summaryBook.coverUrl ? (
-          <Image source={{ uri: summaryBook.coverUrl }} style={styles.cover} />
-        ) : (
-          <View style={[styles.cover, styles.coverFallback]}>
-            <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-          </View>
-        )}
+        <BookCover uri={summaryBook.coverUrl} style={styles.cover} />
 
         <View style={styles.heroCopy}>
           <View style={styles.heroStats}>
             <View style={styles.statChip}>
-              <Text style={styles.statValue}>{formatAverage(detail?.ratings.communityAverageRating ?? null)}</Text>
+              <Text style={styles.statValue}>
+                {formatAverage(detail?.ratings.communityAverageRating ?? null)}
+              </Text>
               <Text style={styles.statLabel}>média</Text>
             </View>
             <View style={styles.statChip}>
@@ -194,9 +199,22 @@ export const BookDetailScreen = ({
         <>
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>Sinopse</Text>
-            <Text style={styles.bodyText}>
-              {detail?.book.description?.trim() || "Sem sinopse disponível para esta edição."}
+            <Text
+              style={styles.bodyText}
+              numberOfLines={showFullSynopsis ? undefined : 3}
+              onTextLayout={(event) => {
+                if (!showFullSynopsis) {
+                  setIsSynopsisExpandable(event.nativeEvent.lines.length > 3);
+                }
+              }}
+            >
+              {synopsis}
             </Text>
+            {isSynopsisExpandable ? (
+              <Pressable onPress={() => setShowFullSynopsis((current) => !current)}>
+                <Text style={styles.linkText}>{showFullSynopsis ? "Ver menos" : "Ver mais"}</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.metricsGrid}>
@@ -267,13 +285,7 @@ export const BookDetailScreen = ({
                     onPress={() => onOpenBook(item)}
                     style={styles.similarCard}
                   >
-                    {item.coverUrl ? (
-                      <Image source={{ uri: item.coverUrl }} style={styles.similarCover} />
-                    ) : (
-                      <View style={[styles.similarCover, styles.coverFallback]}>
-                        <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-                      </View>
-                    )}
+                    <BookCover uri={item.coverUrl} style={styles.similarCover} />
                     <Text style={styles.similarTitle} numberOfLines={2}>
                       {item.title}
                     </Text>
@@ -295,7 +307,9 @@ export const BookDetailScreen = ({
               <View style={styles.reviewHeader}>
                 <View>
                   <Text style={styles.reviewUser}>@{review.username}</Text>
-                  <Text style={styles.reviewDate}>{formatLogDate(review.readAt ?? review.createdAt)}</Text>
+                  <Text style={styles.reviewDate}>
+                    {formatLogDate(review.readAt ?? review.createdAt)}
+                  </Text>
                 </View>
                 <Text style={styles.reviewStars}>{starsText(review.rating)}</Text>
               </View>
@@ -321,13 +335,7 @@ export const BookDetailScreen = ({
               onPress={() => onOpenBook(item)}
               style={styles.resultCard}
             >
-              {item.coverUrl ? (
-                <Image source={{ uri: item.coverUrl }} style={styles.resultCover} />
-              ) : (
-                <View style={[styles.resultCover, styles.coverFallback]}>
-                  <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-                </View>
-              )}
+              <BookCover uri={item.coverUrl} style={styles.resultCover} />
 
               <View style={styles.resultCopy}>
                 <Text style={styles.resultTitle}>{item.title}</Text>
@@ -340,7 +348,9 @@ export const BookDetailScreen = ({
           ))
         ) : (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Ainda não encontrei similares fortes para este livro.</Text>
+            <Text style={styles.emptyTitle}>
+              Ainda não encontrei similares fortes para este livro.
+            </Text>
           </View>
         )
       ) : null}
@@ -383,24 +393,14 @@ const styles = StyleSheet.create({
     height: 250,
     width: 164
   },
-  coverFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.panelMuted,
-    justifyContent: "center"
-  },
-  coverFallbackText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
-  },
   heroCopy: {
     flex: 1,
-    gap: 14
+    gap: 16
   },
   heroStats: {
     flexDirection: "row",
-    gap: 10
+    gap: 12,
+    minHeight: 84
   },
   statChip: {
     backgroundColor: COLORS.field,
@@ -408,8 +408,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     flex: 1,
+    justifyContent: "space-between",
+    minHeight: 84,
     paddingHorizontal: 12,
-    paddingVertical: 12
+    paddingVertical: 14
   },
   statValue: {
     color: COLORS.text,

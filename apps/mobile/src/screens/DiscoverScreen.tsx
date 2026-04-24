@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Image,
   Keyboard,
   Pressable,
   ScrollView,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 
 import { loadFeaturedBooks, searchBooks } from "../api/client";
+import { BookCover } from "../components/BookCover";
 import { SectionHeader } from "../components/SectionHeader";
 import { SubTabBar } from "../components/SubTabBar";
 import { getPreferredCatalogLanguage } from "../lib/catalog-language";
@@ -193,13 +193,7 @@ export const DiscoverScreen = ({
       {results.map((book) => (
         <Pressable key={book.googleId} onPress={() => onPickBook(book)} style={styles.resultCard}>
           <View style={styles.resultTop}>
-            {book.coverUrl ? (
-              <Image source={{ uri: book.coverUrl }} style={styles.cover} />
-            ) : (
-              <View style={[styles.cover, styles.coverFallback]}>
-                <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-              </View>
-            )}
+            <BookCover uri={book.coverUrl} style={styles.cover} />
 
             <View style={styles.resultBody}>
               <Text style={styles.resultTitle}>{book.title}</Text>
@@ -293,13 +287,7 @@ export const DiscoverScreen = ({
       <ScrollView horizontal contentContainerStyle={styles.railRow} showsHorizontalScrollIndicator={false}>
         {popularBooks.map((book) => (
           <Pressable key={book.googleId} onPress={() => onPickBook(book)} style={styles.railCard}>
-            {book.coverUrl ? (
-              <Image source={{ uri: book.coverUrl }} style={styles.railCover} />
-            ) : (
-              <View style={[styles.railCover, styles.coverFallback]}>
-                <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-              </View>
-            )}
+            <BookCover uri={book.coverUrl} style={styles.railCover} />
             <Text style={styles.railTitle} numberOfLines={2}>
               {book.title}
             </Text>
@@ -549,17 +537,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
     lineHeight: 18
-  },
-  coverFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.panelMuted,
-    justifyContent: "center"
-  },
-  coverFallbackText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
   },
   selectionGroup: {
     gap: 12

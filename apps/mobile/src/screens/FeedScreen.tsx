@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
 } from "react-native";
 
 import { loadFeed } from "../api/client";
+import { BookCover } from "../components/BookCover";
 import { SectionHeader } from "../components/SectionHeader";
 import { COLORS, getCardThemeMeta } from "../theme";
 import type { FeedItem, FeedScope } from "../types";
@@ -188,13 +188,7 @@ export const FeedScreen = ({
             </View>
 
             <View style={styles.entryBody}>
-              {item.coverUrl ? (
-                <Image source={{ uri: item.coverUrl }} style={styles.cover} />
-              ) : (
-                <View style={[styles.cover, styles.coverFallback]}>
-                  <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-                </View>
-              )}
+              <BookCover uri={item.coverUrl} style={styles.cover} />
 
               <View style={styles.entryCopy}>
                 <Text style={styles.bookTitle}>{item.title}</Text>
@@ -434,17 +428,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     height: 148,
     width: 100
-  },
-  coverFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.panelMuted,
-    justifyContent: "center"
-  },
-  coverFallbackText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
   },
   entryCopy: {
     flex: 1,

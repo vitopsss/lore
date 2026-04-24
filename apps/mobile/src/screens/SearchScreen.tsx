@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { createActivity, searchBooks } from "../api/client";
+import { BookCover } from "../components/BookCover";
 import { SectionHeader } from "../components/SectionHeader";
 import { CARD_THEMES } from "../config";
 import { COLORS, getCardThemeMeta } from "../theme";
@@ -191,13 +192,7 @@ export const SearchScreen = ({
           </View>
 
           <View style={styles.selectedBookCard}>
-            {selectedBook.coverUrl ? (
-              <Image source={{ uri: selectedBook.coverUrl }} style={styles.selectedCover} />
-            ) : (
-              <View style={[styles.selectedCover, styles.coverFallback]}>
-                <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-              </View>
-            )}
+            <BookCover uri={selectedBook.coverUrl} style={styles.selectedCover} />
 
             <View style={styles.selectedBookCopy}>
               <Text style={styles.selectedBookTitle}>{selectedBook.title}</Text>
@@ -366,13 +361,7 @@ export const SearchScreen = ({
             style={[styles.resultCard, selected && styles.resultCardSelected]}
           >
             <View style={styles.resultTop}>
-              {book.coverUrl ? (
-                <Image source={{ uri: book.coverUrl }} style={styles.cover} />
-              ) : (
-                <View style={[styles.cover, styles.coverFallback]}>
-                  <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-                </View>
-              )}
+              <BookCover uri={book.coverUrl} style={styles.cover} />
 
               <View style={styles.resultBody}>
                 <Text style={styles.resultTitle}>{book.title}</Text>
@@ -697,17 +686,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     height: 154,
     width: 104
-  },
-  coverFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.panelMuted,
-    justifyContent: "center"
-  },
-  coverFallbackText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
   },
   resultBody: {
     flex: 1,

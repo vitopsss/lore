@@ -9,7 +9,7 @@ const bookDetailQuerySchema = z.object({
 
 export const bookDetailController = async (request: Request, response: Response) => {
   const { googleId } = bookDetailQuerySchema.parse(request.query);
-  const detail = await getBookDetail(googleId);
+  const detail = await getBookDetail(googleId, request.language);
 
   response.json({
     data: detail

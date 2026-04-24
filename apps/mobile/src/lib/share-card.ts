@@ -1,14 +1,16 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
 import { getShareCardUrl } from "../api/client";
 
 const createTempFileUri = (activityId: string) => {
-  if (!FileSystem.cacheDirectory) {
-    throw new Error("Não foi possível preparar o cache do app para compartilhar o card.");
+  const writableDirectory = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+
+  if (!writableDirectory) {
+    throw new Error("Não foi possível preparar um diretório local para compartilhar o card.");
   }
 
-  return `${FileSystem.cacheDirectory}lore-share-${activityId}.png`;
+  return `${writableDirectory}lore-share-${activityId}.png`;
 };
 
 export const shareActivityCard = async (activityId: string) => {

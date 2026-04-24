@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { loadDailyVerse, loadFeed, loadFeaturedBooks, loadNowReadingPulse, loadStats } from "../api/client";
+import { BookCover } from "../components/BookCover";
 import { FeedEntryCard } from "../components/FeedEntryCard";
 import { SectionHeader } from "../components/SectionHeader";
 import { SubTabBar } from "../components/SubTabBar";
@@ -110,22 +118,16 @@ const BookRail = ({
             onPress={() => onPickBook(book)}
             style={styles.popularCard}
           >
-            {book.coverUrl ? (
-              <View style={styles.coverWrapper}>
-                <Image source={{ uri: book.coverUrl }} style={styles.popularCover} />
-                {readerCount > 0 && (
-                  <View style={styles.pulseBadge}>
-                    <Text style={styles.pulseBadgeText}>
-                      {readerCount} {readerCount === 1 ? "pessoa" : "pessoas"} lendo agora
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <View style={[styles.popularCover, styles.coverFallback]}>
-                <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-              </View>
-            )}
+            <View style={styles.coverWrapper}>
+              <BookCover uri={book.coverUrl} style={styles.popularCover} />
+              {readerCount > 0 && (
+                <View style={styles.pulseBadge}>
+                  <Text style={styles.pulseBadgeText}>
+                    {readerCount} {readerCount === 1 ? "pessoa" : "pessoas"} lendo agora
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.popularTitle} numberOfLines={2}>
               {book.title}
             </Text>
@@ -223,7 +225,15 @@ export const HomeScreen = ({
 
       <SubTabBar options={homeTabs} value={activeTab} onChange={setActiveTab} />
 
-      {loading ? <Text style={styles.loadingText}>{t("common:loading")}</Text> : null}
+      {loading ? (
+        <View style={styles.loadingCard}>
+          <ActivityIndicator color={COLORS.accentSoft} size="small" />
+          <View style={styles.loadingCopy}>
+            <Text style={styles.loadingTitle}>Atualizando a home</Text>
+            <Text style={styles.loadingText}>{t("common:loading")}</Text>
+          </View>
+        </View>
+      ) : null}
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
@@ -337,12 +347,32 @@ export const HomeScreen = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 18,
+    gap: 22,
     paddingBottom: 28
+  },
+  loadingCard: {
+    alignItems: "center",
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 14,
+    padding: 16
+  },
+  loadingCopy: {
+    flex: 1,
+    gap: 2
+  },
+  loadingTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "800"
   },
   loadingText: {
     color: COLORS.textMuted,
-    fontSize: 13
+    fontSize: 13,
+    lineHeight: 19
   },
   errorCard: {
     backgroundColor: COLORS.dangerTint,
@@ -410,7 +440,7 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   railSection: {
-    gap: 12
+    gap: 16
   },
   sectionRow: {
     alignItems: "center",
@@ -466,17 +496,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     textAlign: "center"
-  },
-  coverFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.panelMuted,
-    justifyContent: "center"
-  },
-  coverFallbackText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
   },
   popularTitle: {
     color: COLORS.text,

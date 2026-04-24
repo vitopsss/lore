@@ -3,6 +3,7 @@ import "react-native-url-polyfill/auto";
 import "./src/i18n";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -10,23 +11,24 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
-import { createUser, loadUsers } from "./src/api/client";
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { BookDetailScreen } from "./src/screens/BookDetailScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { LoginScreen } from "./src/screens/LoginScreen";
 import { PostScreen } from "./src/screens/PostScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
+import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { BRAND_NAME, COLORS } from "./src/theme";
-import type { AppUser, BookSearchResult, FeedItem, StreakSnapshot } from "./src/types";
+import type { BookSearchResult, FeedItem, StreakSnapshot } from "./src/types";
 
 type TabKey = "home" | "discover" | "post" | "activity" | "profile";
+type AuthScreenMode = "login" | "register";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "home", label: "Home" },
@@ -36,14 +38,9 @@ const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "profile", label: "Perfil" }
 ];
 
-const DEMO_USER_IDS = new Set([
-  "00000000-0000-0000-0000-000000000001",
-  "00000000-0000-0000-0000-000000000002"
-]);
-
-const planLabel = (viewer: AppUser) => (viewer.premiumStatus ? "Clube" : "Básico");
-const streakLabel = (viewer: AppUser) =>
-  viewer.currentStreak <= 0 ? "Sem ofensiva" : `${viewer.currentStreak}d de ofensiva`;
+const planLabel = (premiumStatus: boolean) => (premiumStatus ? "Clube" : "Basico");
+const streakLabel = (currentStreak: number) =>
+  currentStreak <= 0 ? "Sem ofensiva" : `${currentStreak}d de ofensiva`;
 
 const feedItemToBook = (item: FeedItem): BookSearchResult => ({
   googleId: item.googleId,
@@ -57,60 +54,32 @@ const feedItemToBook = (item: FeedItem): BookSearchResult => ({
 });
 
 const AppShell = () => {
-  const { isReady: authReady, profile: authProfile } = useAuth();
+  const {
+    authUser,
+    error: authError,
+    isReady: authReady,
+    profile,
+    refreshProfile
+  } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("home");
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [viewerId, setViewerId] = useState<string | null>(null);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
-  const [usernameInput, setUsernameInput] = useState("");
-  const [creatingUser, setCreatingUser] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthScreenMode>("login");
   const [refreshKey, setRefreshKey] = useState(0);
   const [composerSeed, setComposerSeed] = useState<BookSearchResult | null>(null);
   const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
 
-  const loadViewerOptions = async () => {
-    setLoadingUsers(true);
-    setUsersError(null);
-
-    try {
-      const payload = await loadUsers();
-      setUsers(payload);
-      const realUser = payload.find((user) => !DEMO_USER_IDS.has(user.id));
-      setViewerId((current) =>
-        current && payload.some((user) => user.id === current) ? current : realUser?.id ?? null
-      );
-    } catch (error) {
-      setUsersError(
-        error instanceof Error ? error.message : "Não foi possível carregar o app."
-      );
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
   useEffect(() => {
-    void loadViewerOptions();
-  }, []);
-
-  useEffect(() => {
-    if (!authProfile) {
-      return;
+    if (authUser) {
+      setAuthMode("login");
     }
-
-    setUsers((current) => [
-      authProfile,
-      ...current.filter((user) => user.id !== authProfile.id)
-    ]);
-    setViewerId(authProfile.id);
-  }, [authProfile]);
+  }, [authUser]);
 
   useEffect(() => {
     setComposerSeed(null);
     setSelectedBook(null);
-  }, [viewerId]);
+    setActiveTab("home");
+  }, [profile?.id]);
 
-  const viewer = users.find((user) => user.id === viewerId) ?? null;
+  const viewer = profile;
   const viewerInitial = viewer?.username.charAt(0).toUpperCase() ?? "?";
 
   const openBookDetail = (book: BookSearchResult) => {
@@ -127,120 +96,206 @@ const AppShell = () => {
     setActiveTab("post");
   };
 
-  const handlePostCreated = (nextStreak: StreakSnapshot) => {
-    if (viewerId) {
-      setUsers((current) =>
-        current.map((user) =>
-          user.id === viewerId
-            ? {
-                ...user,
-                currentStreak: nextStreak.currentStreak,
-                lastReadDate: nextStreak.lastReadDate
-              }
-            : user
-        )
-      );
-    }
-
+  const handlePostCreated = (_nextStreak: StreakSnapshot) => {
     setRefreshKey((current) => current + 1);
   };
 
-  const handleCreateUser = async () => {
-    const username = usernameInput.trim().toLowerCase();
-
-    if (username.length < 3) {
-      setUsersError("Escolha um username com pelo menos 3 caracteres.");
-      return;
-    }
-
-    setCreatingUser(true);
-    setUsersError(null);
-
-    try {
-      const createdUser = await createUser({
-        username
-      });
-      setUsers((current) => [createdUser, ...current.filter((user) => user.id !== createdUser.id)]);
-      setViewerId(createdUser.id);
-      setUsernameInput("");
-    } catch (error) {
-      setUsersError(
-        error instanceof Error ? error.message : "Não foi possível criar sua conta."
+  const renderShellBody = () => {
+    if (!authReady) {
+      return (
+        <View style={styles.bannerCard}>
+          <ActivityIndicator color={COLORS.accentSoft} size="small" />
+          <Text style={styles.bannerTitle}>Abrindo app</Text>
+          <Text style={styles.bannerText}>Validando sessão e preparando a experiência.</Text>
+        </View>
       );
-    } finally {
-      setCreatingUser(false);
     }
-  };
 
-  const renderContent = () => {
+    if (!authUser) {
+      return authMode === "register" ? (
+        <RegisterScreen onOpenLogin={() => setAuthMode("login")} />
+      ) : (
+        <LoginScreen onOpenRegister={() => setAuthMode("register")} />
+      );
+    }
+
     if (!viewer) {
-      return null;
+      return (
+        <View style={styles.bannerCard}>
+          <ActivityIndicator color={COLORS.accentSoft} size="small" />
+          <Text style={styles.bannerTitle}>Sincronizando perfil</Text>
+          <Text style={styles.bannerText}>
+            {authError ?? "Buscando seu perfil na API antes de liberar as rotas."}
+          </Text>
+          <Pressable style={styles.bannerAction} onPress={() => void refreshProfile()}>
+            <Text style={styles.bannerActionText}>Tentar novamente</Text>
+          </Pressable>
+        </View>
+      );
     }
 
     if (selectedBook && activeTab !== "post") {
       return (
-        <BookDetailScreen
-          viewerId={viewer.id}
-          book={selectedBook}
-          onBack={() => setSelectedBook(null)}
-          onOpenBook={openBookDetail}
-          onLogBook={openComposerWithBook}
-        />
+        <>
+          {activeTab !== "profile" ? (
+            <View style={styles.viewerBar}>
+              <View style={styles.viewerSummary}>
+                {viewer.avatar ? (
+                  <Image source={{ uri: viewer.avatar }} style={styles.viewerAvatar} />
+                ) : (
+                  <View style={[styles.viewerAvatar, styles.viewerAvatarFallback]}>
+                    <Text style={styles.viewerAvatarText}>{viewerInitial}</Text>
+                  </View>
+                )}
+
+                <View style={styles.viewerCopy}>
+                  <Text style={styles.viewerName}>@{viewer.username}</Text>
+                  <Text style={styles.viewerMeta}>{planLabel(viewer.premiumStatus)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.viewerStreak}>
+                <Text style={styles.viewerStreakValue}>{streakLabel(viewer.currentStreak)}</Text>
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.content}>
+            <BookDetailScreen
+              viewerId={viewer.id}
+              book={selectedBook}
+              onBack={() => setSelectedBook(null)}
+              onOpenBook={openBookDetail}
+              onLogBook={openComposerWithBook}
+            />
+          </View>
+
+          <View style={styles.tabBar}>
+            {tabs.map((tab) => {
+              const active = tab.key === activeTab;
+
+              return (
+                <Pressable
+                  key={tab.key}
+                  onPress={() => {
+                    setSelectedBook(null);
+                    setActiveTab(tab.key);
+                  }}
+                  style={[styles.tabButton, active && styles.tabButtonActive]}
+                >
+                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
       );
     }
 
-    if (activeTab === "home") {
-      return (
-        <HomeScreen
-          viewerId={viewer.id}
-          viewerUsername={viewer.username}
-          onRequestDiscover={() => setActiveTab("discover")}
-          onRequestActivity={() => setActiveTab("activity")}
-          onRequestProfile={() => setActiveTab("profile")}
-          onPickBook={openBookDetail}
-          onOpenFeedBook={openBookDetailFromFeed}
-          refreshKey={refreshKey}
-        />
-      );
-    }
+    const renderContent = () => {
+      if (activeTab === "home") {
+        return (
+          <HomeScreen
+            viewerId={viewer.id}
+            viewerUsername={viewer.username}
+            onRequestDiscover={() => setActiveTab("discover")}
+            onRequestActivity={() => setActiveTab("activity")}
+            onRequestProfile={() => setActiveTab("profile")}
+            onPickBook={openBookDetail}
+            onOpenFeedBook={openBookDetailFromFeed}
+            refreshKey={refreshKey}
+          />
+        );
+      }
 
-    if (activeTab === "discover") {
-      return <DiscoverScreen viewerId={viewer.id} onPickBook={openBookDetail} />;
-    }
+      if (activeTab === "discover") {
+        return <DiscoverScreen viewerId={viewer.id} onPickBook={openBookDetail} />;
+      }
 
-    if (activeTab === "post") {
+      if (activeTab === "post") {
+        return (
+          <PostScreen
+            viewerId={viewer.id}
+            viewerPremium={viewer.premiumStatus}
+            initialBook={composerSeed}
+            onPostCreated={handlePostCreated}
+            onRequestActivity={() => setActiveTab("activity")}
+          />
+        );
+      }
+
+      if (activeTab === "activity") {
+        return (
+          <ActivityScreen
+            viewerId={viewer.id}
+            onRequestCreateEntry={() => setActiveTab("post")}
+            onOpenBook={openBookDetailFromFeed}
+            refreshKey={refreshKey}
+          />
+        );
+      }
+
       return (
-        <PostScreen
+        <ProfileScreen
           viewerId={viewer.id}
           viewerPremium={viewer.premiumStatus}
-          initialBook={composerSeed}
-          onPostCreated={handlePostCreated}
-          onRequestActivity={() => setActiveTab("activity")}
-        />
-      );
-    }
-
-    if (activeTab === "activity") {
-      return (
-        <ActivityScreen
-          viewerId={viewer.id}
-          onRequestCreateEntry={() => setActiveTab("post")}
+          viewerUsername={viewer.username}
+          onRequestDiscover={() => setActiveTab("discover")}
+          onRequestPost={() => setActiveTab("post")}
           onOpenBook={openBookDetailFromFeed}
           refreshKey={refreshKey}
         />
       );
-    }
+    };
 
     return (
-      <ProfileScreen
-        viewerId={viewer.id}
-        viewerPremium={viewer.premiumStatus}
-        viewerUsername={viewer.username}
-        onRequestDiscover={() => setActiveTab("discover")}
-        onRequestPost={() => setActiveTab("post")}
-        onOpenBook={openBookDetailFromFeed}
-        refreshKey={refreshKey}
-      />
+      <>
+        {activeTab !== "profile" ? (
+          <View style={styles.viewerBar}>
+            <View style={styles.viewerSummary}>
+              {viewer.avatar ? (
+                <Image source={{ uri: viewer.avatar }} style={styles.viewerAvatar} />
+              ) : (
+                <View style={[styles.viewerAvatar, styles.viewerAvatarFallback]}>
+                  <Text style={styles.viewerAvatarText}>{viewerInitial}</Text>
+                </View>
+              )}
+
+              <View style={styles.viewerCopy}>
+                <Text style={styles.viewerName}>@{viewer.username}</Text>
+                <Text style={styles.viewerMeta}>{planLabel(viewer.premiumStatus)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.viewerStreak}>
+              <Text style={styles.viewerStreakValue}>{streakLabel(viewer.currentStreak)}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.content}>{renderContent()}</View>
+
+        <View style={styles.tabBar}>
+          {tabs.map((tab) => {
+            const active = tab.key === activeTab;
+
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => {
+                  setSelectedBook(null);
+                  setActiveTab(tab.key);
+                }}
+                style={[styles.tabButton, active && styles.tabButtonActive]}
+              >
+                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </>
     );
   };
 
@@ -272,80 +327,11 @@ const AppShell = () => {
 
           <View style={styles.sessionBadge}>
             <View style={styles.sessionDot} />
-            <Text style={styles.sessionText}>api live</Text>
+            <Text style={styles.sessionText}>{authUser ? "auth live" : "guest"}</Text>
           </View>
         </View>
 
-        {loadingUsers || !authReady ? (
-          <View style={styles.bannerCard}>
-            <Text style={styles.bannerTitle}>Abrindo app</Text>
-          </View>
-        ) : viewer ? (
-          <>
-            {activeTab !== "profile" ? (
-              <View style={styles.viewerBar}>
-                <View style={styles.viewerSummary}>
-                  {viewer.avatar ? (
-                    <Image source={{ uri: viewer.avatar }} style={styles.viewerAvatar} />
-                  ) : (
-                    <View style={[styles.viewerAvatar, styles.viewerAvatarFallback]}>
-                      <Text style={styles.viewerAvatarText}>{viewerInitial}</Text>
-                    </View>
-                  )}
-
-                  <View style={styles.viewerCopy}>
-                    <Text style={styles.viewerName}>@{viewer.username}</Text>
-                    <Text style={styles.viewerMeta}>{planLabel(viewer)}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.viewerStreak}>
-                  <Text style={styles.viewerStreakValue}>{streakLabel(viewer)}</Text>
-                </View>
-              </View>
-            ) : null}
-
-            <View style={styles.content}>{renderContent()}</View>
-          </>
-        ) : (
-          <View style={styles.bannerCard}>
-            <Text style={styles.bannerTitle}>Criar conta</Text>
-            <TextInput
-              value={usernameInput}
-              onChangeText={setUsernameInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="seu_username"
-              placeholderTextColor={COLORS.textMuted}
-              style={styles.usernameInput}
-            />
-            {usersError ? <Text style={styles.bannerText}>{usersError}</Text> : null}
-            <Pressable style={styles.bannerAction} onPress={handleCreateUser}>
-              <Text style={styles.bannerActionText}>
-                {creatingUser ? "Criando..." : "Entrar no app"}
-              </Text>
-            </Pressable>
-          </View>
-        )}
-
-        <View style={styles.tabBar}>
-          {tabs.map((tab) => {
-            const active = tab.key === activeTab;
-
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => {
-                  setSelectedBook(null);
-                  setActiveTab(tab.key);
-                }}
-                style={[styles.tabButton, active && styles.tabButtonActive]}
-              >
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {renderShellBody()}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -535,6 +521,7 @@ const styles = StyleSheet.create({
     minHeight: 0
   },
   bannerCard: {
+    alignItems: "flex-start",
     backgroundColor: COLORS.panel,
     borderColor: COLORS.border,
     borderRadius: 24,
@@ -546,16 +533,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 18,
     fontWeight: "900"
-  },
-  usernameInput: {
-    backgroundColor: COLORS.field,
-    borderColor: COLORS.border,
-    borderRadius: 18,
-    borderWidth: 1,
-    color: COLORS.text,
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14
   },
   bannerText: {
     color: COLORS.textMuted,

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { createActivity, searchBooks } from "../api/client";
+import { BookCover } from "../components/BookCover";
 import { SectionHeader } from "../components/SectionHeader";
 import { CARD_THEMES } from "../config";
 import { shareActivityCard } from "../lib/share-card";
@@ -250,13 +251,7 @@ export const PostScreen = ({
 
         {selectedBook ? (
           <View style={styles.selectedBookCard}>
-            {selectedBook.coverUrl ? (
-              <Image source={{ uri: selectedBook.coverUrl }} style={styles.selectedCover} />
-            ) : (
-              <View style={[styles.selectedCover, styles.coverFallback]}>
-                <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-              </View>
-            )}
+            <BookCover uri={selectedBook.coverUrl} style={styles.selectedCover} />
 
             <View style={styles.selectedBookCopy}>
               <Text style={styles.selectedBookTitle}>{selectedBook.title}</Text>
@@ -294,13 +289,7 @@ export const PostScreen = ({
                   style={[styles.resultCard, active && styles.resultCardActive]}
                 >
                   <View style={styles.resultTop}>
-                    {book.coverUrl ? (
-                      <Image source={{ uri: book.coverUrl }} style={styles.resultCover} />
-                    ) : (
-                      <View style={[styles.resultCover, styles.coverFallback]}>
-                        <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-                      </View>
-                    )}
+                    <BookCover uri={book.coverUrl} style={styles.resultCover} />
 
                     <View style={styles.resultCopy}>
                       <Text style={styles.resultTitle}>{book.title}</Text>
@@ -571,17 +560,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     height: 148,
     width: 102
-  },
-  coverFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.panelMuted,
-    justifyContent: "center"
-  },
-  coverFallbackText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
   },
   selectedBookCopy: {
     flex: 1,

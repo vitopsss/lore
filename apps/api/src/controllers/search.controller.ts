@@ -18,7 +18,10 @@ const searchSchema = z.object({
 
 export const searchController = async (request: Request, response: Response) => {
   const { q = "", ...filters } = searchSchema.parse(request.query);
-  const books = await searchCatalogBooks(q, filters);
+  const books = await searchCatalogBooks(q, {
+    ...filters,
+    language: filters.language ?? request.language
+  });
 
   response.json({
     data: books

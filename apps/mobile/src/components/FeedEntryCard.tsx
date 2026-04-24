@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { BookCover } from "./BookCover";
 import { shareActivityCard } from "../lib/share-card";
 import { COLORS, getCardThemeMeta } from "../theme";
 import type { FeedItem } from "../types";
@@ -91,13 +92,7 @@ export const FeedEntryCard = ({
       </View>
 
       <View style={styles.body}>
-        {item.coverUrl ? (
-          <Image source={{ uri: item.coverUrl }} style={[styles.cover, compact && styles.coverCompact]} />
-        ) : (
-          <View style={[styles.cover, compact && styles.coverCompact, styles.coverFallback]}>
-            <Text style={styles.coverFallbackText}>SEM CAPA</Text>
-          </View>
-        )}
+        <BookCover uri={item.coverUrl} style={[styles.cover, compact && styles.coverCompact]} />
 
         <View style={styles.copy}>
           <Text style={styles.title}>{item.title}</Text>
@@ -201,17 +196,6 @@ const styles = StyleSheet.create({
   coverCompact: {
     height: 126,
     width: 86
-  },
-  coverFallback: {
-    alignItems: "center",
-    backgroundColor: COLORS.panelMuted,
-    justifyContent: "center"
-  },
-  coverFallbackText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
   },
   copy: {
     flex: 1,

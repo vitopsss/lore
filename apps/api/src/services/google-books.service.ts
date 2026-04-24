@@ -16,13 +16,17 @@ interface GoogleBooksResponse {
   items?: GoogleBookVolume[];
 }
 
-interface GoogleBookVolume {
+export interface GoogleBookVolume {
   id: string;
   volumeInfo: {
     title?: string;
     authors?: string[];
+    description?: string;
     language?: string;
     publishedDate?: string;
+    publisher?: string;
+    averageRating?: number;
+    ratingsCount?: number;
     imageLinks?: {
       extraLarge?: string;
       large?: string;
@@ -45,6 +49,21 @@ interface GoogleVolumeQueryOptions {
   orderBy?: "relevance" | "newest";
   maxResults?: number;
 }
+
+interface SearchCacheEntry {
+  books: BookInput[];
+  expiresAt: number;
+}
+
+interface LocalizedVolumeLookup {
+  googleId?: string;
+  isbn?: string | null;
+  title: string;
+  author: string;
+}
+
+const SEARCH_CACHE_TTL_MS = 1000 * 60 * 10;
+const searchCache = new Map<string, SearchCacheEntry>();
 
 const normalizeCoverUrl = (coverUrl?: string | null) => {
   if (!coverUrl) {
@@ -219,7 +238,104 @@ const collapseExactTitleMatches = (query: string, books: BookInput[]) => {
   return [...collapsed.values(), ...remaining];
 };
 
-const fetchGoogleVolumes = async ({
+const buildSearchCacheKey = (query: string, filters: CatalogSearchFilters) =>
+  JSON.stringify({
+    query: normalizeToken(query),
+    releaseDate: filters.releaseDate?.trim().toLowerCase() ?? "",
+    genre: normalizeToken(filters.genre ?? ""),
+    country: normalizeToken(filters.country ?? ""),
+    language: normalizeCatalogLanguage(filters.language) ?? "",
+    service: normalizeCatalogSource(filters.service)
+  });
+
+const getCachedSearch = (cacheKey: string) => {
+  const cachedEntry = searchCache.get(cacheKey);
+
+  if (!cachedEntry) {
+    return null;
+  }
+
+  if (cachedEntry.expiresAt <= Date.now()) {
+    searchCache.delete(cacheKey);
+    return null;
+  }
+
+  return cachedEntry.books;
+};
+
+const setCachedSearch = (cacheKey: string, books: BookInput[]) => {
+  searchCache.set(cacheKey, {
+    books,
+    expiresAt: Date.now() + SEARCH_CACHE_TTL_MS
+  });
+};
+
+const buildLocalizedLookupQueries = ({
+  isbn,
+  title,
+  author
+}: LocalizedVolumeLookup) => {
+  const queries = new Set<string>();
+  const normalizedIsbn = isbn?.trim();
+  const primaryAuthor = author.split(/,| e | and /i)[0]?.trim();
+  const normalizedTitle = title.trim();
+
+  if (normalizedIsbn) {
+    queries.add(`isbn:${normalizedIsbn}`);
+  }
+
+  if (normalizedTitle && primaryAuthor) {
+    queries.add(`${normalizedTitle} ${primaryAuthor}`);
+  }
+
+  if (normalizedTitle) {
+    queries.add(normalizedTitle);
+  }
+
+  return [...queries];
+};
+
+const scoreLocalizedVolumeMatch = (
+  candidate: GoogleBookVolume,
+  lookup: LocalizedVolumeLookup
+) => {
+  let score = 0;
+  const candidateIsbn = extractIsbn(candidate);
+
+  if (lookup.googleId && candidate.id === lookup.googleId) {
+    score += 400;
+  }
+
+  if (lookup.isbn?.trim() && candidateIsbn?.trim() && lookup.isbn.trim() === candidateIsbn.trim()) {
+    score += 260;
+  }
+
+  const lookupTitle = normalizeToken(lookup.title);
+  const candidateTitle = normalizeToken(candidate.volumeInfo.title ?? "");
+
+  if (lookupTitle && candidateTitle === lookupTitle) {
+    score += 220;
+  } else if (lookupTitle && candidateTitle.includes(lookupTitle)) {
+    score += 120;
+  }
+
+  const lookupAuthor = normalizeAuthor(lookup.author);
+  const candidateAuthor = normalizeAuthor(candidate.volumeInfo.authors?.join(", ") ?? "");
+
+  if (lookupAuthor && candidateAuthor === lookupAuthor) {
+    score += 120;
+  } else if (lookupAuthor && candidateAuthor.includes(lookupAuthor)) {
+    score += 60;
+  }
+
+  if (candidate.volumeInfo.description?.trim()) {
+    score += 30;
+  }
+
+  return score;
+};
+
+const fetchGoogleVolumeDocuments = async ({
   query,
   filters = {},
   orderBy = "relevance",
@@ -247,7 +363,51 @@ const fetchGoogleVolumes = async ({
       })
     : payload.items ?? [];
 
-  return filteredItems.map(mapVolumeToBook);
+  return filteredItems;
+};
+
+const fetchGoogleVolumes = async (options: GoogleVolumeQueryOptions) => {
+  const items = await fetchGoogleVolumeDocuments(options);
+  return items.map(mapVolumeToBook);
+};
+
+export const findLocalizedGoogleVolume = async (
+  lookup: LocalizedVolumeLookup,
+  language?: string | null
+) => {
+  const normalizedLanguage = normalizeCatalogLanguage(language ?? undefined);
+
+  if (!normalizedLanguage) {
+    return null;
+  }
+
+  const queries = buildLocalizedLookupQueries(lookup);
+
+  if (queries.length === 0) {
+    return null;
+  }
+
+  const results = await Promise.allSettled(
+    queries.map((query) =>
+      fetchGoogleVolumeDocuments({
+        query,
+        filters: {
+          language: normalizedLanguage
+        },
+        orderBy: "relevance",
+        maxResults: 6
+      })
+    )
+  );
+
+  const candidates = results
+    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+    .sort(
+      (left, right) =>
+        scoreLocalizedVolumeMatch(right, lookup) - scoreLocalizedVolumeMatch(left, lookup)
+    );
+
+  return candidates[0] ?? null;
 };
 
 const searchLiveGoogleBooks = async (
@@ -292,23 +452,32 @@ export const searchCatalogBooks = async (
   query: string,
   filters: CatalogSearchFilters = {}
 ) => {
+  const cacheKey = buildSearchCacheKey(query, filters);
+  const cachedBooks = getCachedSearch(cacheKey);
+
+  if (cachedBooks) {
+    return cachedBooks;
+  }
+
   const source = normalizeCatalogSource(filters.service);
+  let books: BookInput[];
 
   if (source === "google") {
-    return collapseExactTitleMatches(
+    books = collapseExactTitleMatches(
       query,
       rankAndDedupeBooks(query, await searchLiveGoogleBooks(query, filters))
     ).slice(0, 12);
-  }
-
-  if (source === "open_library") {
-    return collapseExactTitleMatches(
+  } else if (source === "open_library") {
+    books = collapseExactTitleMatches(
       query,
       rankAndDedupeBooks(query, await searchOpenLibraryBooks(query, filters))
     ).slice(0, 12);
+  } else {
+    books = await searchGoogleBooks(query, filters);
   }
 
-  return searchGoogleBooks(query, filters);
+  setCachedSearch(cacheKey, books);
+  return books;
 };
 
 export type FeaturedBooksMode = "popular" | "anticipated";
