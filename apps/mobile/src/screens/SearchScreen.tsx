@@ -33,7 +33,7 @@ const previewUri = (card: ShareCardResult | null) =>
   card ? `data:image/png;base64,${card.base64}` : undefined;
 
 const ratingOptions = [1, 2, 3, 4, 5];
-const SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_DEBOUNCE_MS = 800;
 
 const isValidReadDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
@@ -60,7 +60,8 @@ export const SearchScreen = ({
   viewerPremium: boolean;
   onPostCreated: () => void;
 }) => {
-  const [query, setQuery] = useState("Dom Casmurro");
+  const [query, setQuery] = useState("");
+  const [hasFocus, setHasFocus] = useState(false);
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
   const [selectedTheme, setSelectedTheme] = useState<CardThemeName>("classic");
@@ -72,7 +73,7 @@ export const SearchScreen = ({
   const [searching, setSearching] = useState(false);
   const [submittingBookId, setSubmittingBookId] = useState<string | null>(null);
   const [shareCard, setShareCard] = useState<ShareCardResult | null>(null);
-  const hasTypedQueryRef = useRef(false);
+  const inputRef = useRef<TextInput>(null);
   const latestSearchIdRef = useRef(0);
 
   const activeTheme = CARD_THEMES.find((theme) => theme.key === selectedTheme);
@@ -136,12 +137,15 @@ export const SearchScreen = ({
     } finally {
       if (requestId === latestSearchIdRef.current) {
         setSearching(false);
+        if (hasFocus) {
+          inputRef.current?.focus();
+        }
       }
     }
   };
 
   useEffect(() => {
-    if (!hasTypedQueryRef.current) {
+    if (!query || !hasFocus) {
       return;
     }
 
@@ -152,7 +156,7 @@ export const SearchScreen = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [query, viewerId]);
+  }, [query, hasFocus]);
 
   const registerActivity = async () => {
     if (!selectedBook) {
@@ -215,19 +219,23 @@ export const SearchScreen = ({
         <Text style={styles.panelLabel}>Buscar livro</Text>
         <View style={styles.searchRow}>
           <TextInput
+            ref={inputRef}
             value={query}
-            onChangeText={(value) => {
-              hasTypedQueryRef.current = true;
-              setQuery(value);
-            }}
+            onChangeText={setQuery}
+            onFocus={() => setHasFocus(true)}
+            onBlur={() => setHasFocus(false)}
             onSubmitEditing={() => void runSearch(query, true)}
             placeholder="Titulo, autor ou ISBN"
             placeholderTextColor={COLORS.textMuted}
             returnKeyType="search"
             style={styles.searchInput}
           />
-          <Pressable style={styles.searchButton} onPress={() => void runSearch(query, true)}>
-            <Text style={styles.searchButtonText}>
+          <Pressable
+            style={[styles.searchButton, searching && styles.searchButtonDisabled]}
+            disabled={searching || !query.trim()}
+            onPress={() => void runSearch(query, false)}
+          >
+            <Text style={[styles.searchButtonText, searching && styles.searchButtonTextDisabled]}>
               {searching ? "Buscando..." : "Buscar"}
             </Text>
           </Pressable>
@@ -485,10 +493,16 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14
   },
+  searchButtonDisabled: {
+    opacity: 0.5
+  },
   searchButtonText: {
     color: "#101013",
     fontSize: 15,
     fontWeight: "900"
+  },
+  searchButtonTextDisabled: {
+    color: COLORS.textMuted
   },
   liveRow: {
     flexDirection: "row",
