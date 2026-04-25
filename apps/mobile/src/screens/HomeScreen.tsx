@@ -60,7 +60,7 @@ const DailyVerse = ({
       </View>
       <Text style={styles.verseText}>"{verse.quote}"</Text>
       <Text style={styles.verseSource}>
-        - {verse.bookTitle}, {verse.author}
+        - {verse.bookTitle === verse.author ? verse.author : `${verse.bookTitle}, ${verse.author}`}
       </Text>
       {onShare ? (
         <Pressable onPress={onShare} style={styles.verseButton}>

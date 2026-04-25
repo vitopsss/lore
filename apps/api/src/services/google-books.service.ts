@@ -69,40 +69,36 @@ const searchCache = new Map<string, SearchCacheEntry>();
 const FEATURED_QUERIES: Record<SupportedCatalogLocale, Record<FeaturedBooksMode, string[]>> = {
   en: {
     anticipated: [
-      "subject:fiction",
-      "subject:fantasy",
-      "subject:young adult",
-      "subject:science fiction",
-      "subject:romance",
-      "subject:bestsellers"
+      "q=bestsellers+books+2024",
+      "q=award+winners+fiction",
+      "subject:fiction+new+releases",
+      "subject:fantasy+new+releases",
+      "subject:young+adult+new+releases"
     ],
     popular: [
-      "subject:fiction",
-      "subject:romance",
-      "subject:fantasy",
-      "subject:thriller",
-      "subject:mystery",
-      "subject:young adult",
-      "subject:bestsellers"
+      "q=most+popular+fiction+books",
+      "q=bestselling+novels+2024",
+      "subject:fiction+bestsellers",
+      "subject:romance+bestsellers",
+      "subject:fantasy+bestsellers",
+      "subject:thriller+bestsellers"
     ]
   },
   pt: {
     anticipated: [
-      "subject:ficcao",
-      "subject:fantasia",
-      "subject:romance",
-      "subject:ficcao cientifica",
-      "subject:juvenil",
-      "subject:bestsellers"
+      "q=livros+mais+vendidos+2024",
+      "q=lancamentos+literarios+2024",
+      "subject:ficcao+lancamentos",
+      "subject:fantasia+lancamentos",
+      "subject:romance+novidades"
     ],
     popular: [
-      "subject:ficcao",
-      "subject:romance",
-      "subject:fantasia",
-      "subject:suspense",
-      "subject:misterio",
-      "subject:classicos",
-      "subject:bestsellers"
+      "q=livros+mais+vendidos+brasil",
+      "q=bestsellers+ficcao+brasileira",
+      "subject:ficcao+bestsellers",
+      "subject:romance+bestsellers",
+      "subject:fantasia+bestsellers",
+      "subject:suspense+bestsellers"
     ]
   }
 };
@@ -160,7 +156,7 @@ const normalizeCoverUrl = (coverUrl?: string | null) => {
   return coverUrl
     .replace("http://", "https://")
     .replace("&edge=curl", "")
-    .replace("zoom=1", "zoom=2");
+    .replace(/zoom=\d+/, "zoom=1");
 };
 
 const extractIsbn = (volume: GoogleBookVolume) => {

@@ -87,10 +87,12 @@
     "genres": "Top genres"
   },
   "community": {
-    "dailyVerse": "Daily verse",
+    "dailyVerse": "Quote of the day",
     "shareInsight": "Share insight",
     "peopleReading": "{{count}} person reading now",
-    "peopleReading_plural": "{{count}} people reading now"
+    "peopleReading_plural": "{{count}} people reading now",
+    "defaultVerse": "There is no greater agony than bearing an untold story inside you.",
+    "defaultVerseAuthor": "Maya Angelou"
   },
   "search": {
     "title": "Search books",

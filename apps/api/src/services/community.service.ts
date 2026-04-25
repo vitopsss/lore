@@ -66,11 +66,11 @@ export const getDailyVerse = async (): Promise<DailyVerse> => {
       return verse;
     }
 
-    return {
-      quote: "Um livro é um sonho que você segura nas mãos. — Neil Gaiman",
-      bookTitle: "Neil Gaiman",
-      author: "Autor Conhecido"
-    };
+return {
+    quote: "There is no greater agony than bearing an untold story inside you.",
+    bookTitle: "Maya Angelou",
+    author: "Maya Angelou"
+  };
   }
 
   try {
@@ -97,11 +97,11 @@ export const getDailyVerse = async (): Promise<DailyVerse> => {
     // fallback
   }
 
-  return {
-    quote: "Um livro é um sonho que você segura nas mãos. — Neil Gaiman",
-    bookTitle: "Neil Gaiman",
-    author: "Autor Conhecido"
-  };
+return {
+      quote: "Os fracos não sabem perdoar. O perdão é uma qualidade dos fortes.",
+      bookTitle: "Mahatma Gandhi",
+      author: "Mahatma Gandhi"
+    };
 };
 
 interface PulseRow {

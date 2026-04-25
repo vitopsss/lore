@@ -87,10 +87,12 @@
     "genres": "Generos do perfil"
   },
   "community": {
-    "dailyVerse": "Verso do dia",
+    "dailyVerse": "Frase do dia",
     "shareInsight": "Compartilhar insight",
     "peopleReading": "{{count}} pessoa lendo agora",
-    "peopleReading_plural": "{{count}} pessoas lendo agora"
+    "peopleReading_plural": "{{count}} pessoas lendo agora",
+    "defaultVerse": "Os fracos não sabem perdoar. O perdão é uma qualidade dos fortes.",
+    "defaultVerseAuthor": "Mahatma Gandhi"
   },
   "search": {
     "title": "Buscar livro",
