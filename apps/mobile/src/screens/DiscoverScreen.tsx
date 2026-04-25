@@ -520,7 +520,7 @@ export const DiscoverScreen = ({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <SectionHeader eyebrow={t("app.tabs.discover")} title={t("discover.title")} />
+      <SectionHeader title={t("discover.title")} />
 
       {view !== "home" ? (
         <Pressable

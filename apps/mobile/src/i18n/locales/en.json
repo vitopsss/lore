@@ -93,9 +93,33 @@
     "peopleReading_plural": "{{count}} people reading now"
   },
   "search": {
+    "title": "Search books",
     "placeholder": "Search books...",
     "noResults": "No results found",
-    "filters": "Filters"
+    "filters": "Filters",
+    "searchRow": "Search book",
+    "searchPlaceholder": "Title, author or ISBN",
+    "searchAction": "Search",
+    "noMetadata": "No metadata",
+    "pages": "{{count}} pages",
+    "cardTheme": "Card theme",
+    "publishStatus": "Publishing",
+    "composeTitle": "Create post",
+    "selectedBook": "Selected book",
+    "publishToWall": "What goes to the wall?",
+    "rating": "Rating",
+    "reviewPlaceholder": "What is worth highlighting in this read?",
+    "finishDate": "Completion date",
+    "datePlaceholder": "2026-04-20",
+    "themeLabel": "Card visual",
+    "composeButton": "Publish to wall",
+    "composeButtonLoading": "Publishing...",
+    "resultsTitle": "Results",
+    "resultsMeta": "{{count}} books found",
+    "resultsEmpty": "Search for a book to open the composer.",
+    "touchToSelect": "Tap to select",
+    "selectedToPublish": "Book selected",
+    "resultMeta": "{{count}} pages"
   },
   "discover": {
     "title": "Browse",
@@ -188,8 +212,8 @@
     "reviewsCount_plural": "{{count}} reviews"
   },
   "activity": {
-    "eyebrow": "Activity",
-    "title": "App movement",
+    "eyebrow": "Feed",
+    "title": "App activity",
     "followingTab": "Following",
     "youTab": "You",
     "followingTitle": "Community feed",

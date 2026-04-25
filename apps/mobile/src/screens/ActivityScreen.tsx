@@ -56,7 +56,7 @@ export const ActivityScreen = ({
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <SectionHeader eyebrow={t("activity.eyebrow")} title={t("activity.title")} />
+      <SectionHeader title={t("activity.title")} />
 
       <View style={styles.hero}>
         <View style={styles.heroCopy}>

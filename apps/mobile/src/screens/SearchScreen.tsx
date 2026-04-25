@@ -9,6 +9,7 @@ import {
   TextInput,
   View
 } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { createActivity, searchBooks } from "../api/client";
 import { BookCover } from "../components/BookCover";
@@ -21,13 +22,6 @@ import type {
   CardThemeName,
   ShareCardResult
 } from "../types";
-
-const statusButtonLabel: Record<ActivityType, string> = {
-  quero_ler: "Quero ler",
-  lendo: "Lendo",
-  lido: "Terminei",
-  abandonado: "Abandonei"
-};
 
 const previewUri = (card: ShareCardResult | null) =>
   card ? `data:image/png;base64,${card.base64}` : undefined;
@@ -60,6 +54,7 @@ export const SearchScreen = ({
   viewerPremium: boolean;
   onPostCreated: () => void;
 }) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [hasFocus, setHasFocus] = useState(false);
   const [results, setResults] = useState<BookSearchResult[]>([]);
@@ -210,13 +205,11 @@ export const SearchScreen = ({
       showsVerticalScrollIndicator={false}
     >
       <SectionHeader
-        eyebrow="Catalogo"
-        title="Escolha um livro e transforme a leitura em post"
-        subtitle="O fluxo agora separa descoberta e publicacao: primeiro voce encontra o titulo, depois monta o registro com status, nota e card."
+        title={t("search.title")}
       />
 
       <View style={styles.searchPanel}>
-        <Text style={styles.panelLabel}>Buscar livro</Text>
+        <Text style={styles.panelLabel}>{t("search.searchRow")}</Text>
         <View style={styles.searchRow}>
           <TextInput
             ref={inputRef}
@@ -225,7 +218,7 @@ export const SearchScreen = ({
             onFocus={() => setHasFocus(true)}
             onBlur={() => setHasFocus(false)}
             onSubmitEditing={() => void runSearch(query, true)}
-            placeholder="Titulo, autor ou ISBN"
+            placeholder={t("search.searchPlaceholder")}
             placeholderTextColor={COLORS.textMuted}
             returnKeyType="search"
             style={styles.searchInput}
@@ -236,14 +229,14 @@ export const SearchScreen = ({
             onPress={() => void runSearch(query, false)}
           >
             <Text style={[styles.searchButtonText, searching && styles.searchButtonTextDisabled]}>
-              {searching ? "Buscando..." : "Buscar"}
+              {searching ? t("common.loading") : t("search.searchAction")}
             </Text>
           </Pressable>
         </View>
         <View style={styles.liveRow}>
-          <Text style={styles.liveText}>Visual do card: {activeThemeMeta.label}</Text>
+          <Text style={styles.liveText}>{t("search.cardTheme")}: {activeThemeMeta.label}</Text>
           <Text style={styles.liveText}>
-            Publicacao: {statusButtonLabel[selectedStatus]}
+            {t("search.publishStatus")}: {t(`post.status.${selectedStatus}`)}
           </Text>
         </View>
       </View>
@@ -251,8 +244,8 @@ export const SearchScreen = ({
       {selectedBook ? (
         <View style={styles.composerPanel}>
           <View style={styles.composerHeader}>
-            <Text style={styles.composerTitle}>Montar post</Text>
-            <Text style={styles.composerHint}>Livro escolhido</Text>
+            <Text style={styles.composerTitle}>{t("search.composeTitle")}</Text>
+            <Text style={styles.composerHint}>{t("search.selectedBook")}</Text>
           </View>
 
           <View style={styles.selectedBookCard}>
@@ -261,31 +254,34 @@ export const SearchScreen = ({
             <View style={styles.selectedBookCopy}>
               <Text style={styles.selectedBookTitle}>{selectedBook.title}</Text>
               <Text style={styles.selectedBookAuthor}>{selectedBook.author}</Text>
-              <Text style={styles.selectedBookMeta}>{buildMetaLine(selectedBook)}</Text>
+              <Text style={styles.selectedBookMeta}>{t("search.noMetadata")}</Text>
             </View>
           </View>
 
-          <Text style={styles.fieldLabel}>O que vai para o mural?</Text>
+          <Text style={styles.fieldLabel}>{t("search.publishToWall")}</Text>
           <View style={styles.pillRow}>
-            {(Object.keys(statusButtonLabel) as ActivityType[]).map((status) => {
-              const active = status === selectedStatus;
-              return (
-                <Pressable
-                  key={status}
-                  onPress={() => setSelectedStatus(status)}
-                  style={[styles.pill, active && styles.pillActive]}
-                >
-                  <Text style={[styles.pillText, active && styles.pillTextActive]}>
-                    {statusButtonLabel[status]}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {(() => {
+              const statusLabels = t("post.status", { returnObjects: true }) as Record<ActivityType, string>;
+              return (Object.keys(statusLabels) as ActivityType[]).map((status) => {
+                const active = status === selectedStatus;
+                return (
+                  <Pressable
+                    key={status}
+                    onPress={() => setSelectedStatus(status)}
+                    style={[styles.pill, active && styles.pillActive]}
+                  >
+                    <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                      {statusLabels[status]}
+                    </Text>
+                  </Pressable>
+                );
+              });
+            })()}
           </View>
 
           {isFinishedLog ? (
             <>
-              <Text style={styles.fieldLabel}>Nota</Text>
+              <Text style={styles.fieldLabel}>{t("search.rating")}</Text>
               <View style={styles.pillRow}>
                 {ratingOptions.map((rating) => {
                   const active = rating === selectedRating;
@@ -310,25 +306,25 @@ export const SearchScreen = ({
             </>
           ) : null}
 
-          <Text style={styles.fieldLabel}>Comentario curto</Text>
+          <Text style={styles.fieldLabel}>{t("post.fields.review")}</Text>
           <TextInput
             value={reviewText}
             onChangeText={setReviewText}
             multiline
             numberOfLines={4}
-            placeholder="O que vale destacar nessa leitura?"
+            placeholder={t("search.reviewPlaceholder")}
             placeholderTextColor={COLORS.textMuted}
             style={styles.multilineInput}
           />
 
           {isFinishedLog ? (
             <>
-              <Text style={styles.fieldLabel}>Data de conclusao</Text>
+              <Text style={styles.fieldLabel}>{t("search.finishDate")}</Text>
               <TextInput
                 value={readAt}
                 onChangeText={setReadAt}
                 onSubmitEditing={Keyboard.dismiss}
-                placeholder="2026-04-20"
+                placeholder={t("search.datePlaceholder")}
                 placeholderTextColor={COLORS.textMuted}
                 returnKeyType="done"
                 style={styles.dateInput}
@@ -336,7 +332,7 @@ export const SearchScreen = ({
             </>
           ) : null}
 
-          <Text style={styles.fieldLabel}>Visual do card</Text>
+          <Text style={styles.fieldLabel}>{t("search.themeLabel")}</Text>
           <View style={styles.pillRow}>
             {CARD_THEMES.map((theme) => {
               const active = theme.key === selectedTheme;
@@ -360,7 +356,7 @@ export const SearchScreen = ({
 
           {!viewerPremium && activeTheme?.premium ? (
             <Text style={styles.warningText}>
-              Os estilos premium continuam bloqueados pela API para perfis basicos.
+              {t("post.premiumWarning")}
             </Text>
           ) : null}
 
@@ -374,8 +370,8 @@ export const SearchScreen = ({
           >
             <Text style={styles.publishButtonText}>
               {submittingBookId === selectedBook.googleId
-                ? "Publicando..."
-                : "Publicar no mural"}
+                ? t("search.composeButtonLoading")
+                : t("search.composeButton")}
             </Text>
           </Pressable>
         </View>
@@ -386,7 +382,7 @@ export const SearchScreen = ({
           <Text style={styles.feedbackText}>{feedback}</Text>
           {shareCard ? (
             <Pressable style={styles.feedbackAction} onPress={onPostCreated}>
-              <Text style={styles.feedbackActionText}>Abrir mural</Text>
+              <Text style={styles.feedbackActionText}>{t("search.openWall")}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -395,7 +391,7 @@ export const SearchScreen = ({
       {shareCard ? (
         <View style={styles.previewPanel}>
           <View style={styles.previewHeader}>
-            <Text style={styles.previewTitle}>Preview do card</Text>
+            <Text style={styles.previewTitle}>{t("search.previewTitle")}</Text>
             <Text style={styles.previewHint}>1080 x 1920</Text>
           </View>
           <Image source={{ uri: previewUri(shareCard) }} style={styles.storyPreview} />
@@ -403,11 +399,11 @@ export const SearchScreen = ({
       ) : null}
 
       <View style={styles.resultsHeader}>
-        <Text style={styles.resultsTitle}>Resultados</Text>
+        <Text style={styles.resultsTitle}>{t("search.resultsTitle")}</Text>
         <Text style={styles.resultsMeta}>
           {results.length > 0
-            ? `${results.length} livros encontrados`
-            : "Busque um livro para abrir o composer."}
+            ? t("search.resultsMeta", { count: results.length })
+            : t("search.resultsEmpty")}
         </Text>
       </View>
 
@@ -430,10 +426,13 @@ export const SearchScreen = ({
               <View style={styles.resultBody}>
                 <Text style={styles.resultTitle}>{book.title}</Text>
                 <Text style={styles.resultAuthor}>{book.author}</Text>
-                <Text style={styles.resultMeta}>{buildMetaLine(book)}</Text>
+                <Text style={styles.resultMeta}>
+                  {book.pageCount ? t("search.resultMeta", { count: book.pageCount }) : t("search.noMetadata")}
+                  {book.categories[0] ? ` / ${book.categories[0]}` : ""}
+                </Text>
 
                 {book.amazonAffiliateLink ? (
-                  <Text style={styles.resultSignal}>Link Amazon pronto</Text>
+                  <Text style={styles.resultSignal}>{t("feedEntry.purchaseLinkReady")}</Text>
                 ) : null}
 
                 {book.categories.length > 1 ? (
@@ -444,7 +443,7 @@ export const SearchScreen = ({
 
             <View style={styles.resultFooter}>
               <Text style={styles.resultFooterText}>
-                {selected ? "Livro pronto para publicar" : "Toque para montar o post"}
+                {selected ? t("search.selectedToPublish") : t("search.touchToSelect")}
               </Text>
             </View>
           </Pressable>

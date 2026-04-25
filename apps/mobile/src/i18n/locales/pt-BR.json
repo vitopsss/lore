@@ -11,10 +11,10 @@
   },
   "app": {
     "tabs": {
-      "home": "Home",
-      "discover": "Buscar",
+      "home": "Inicio",
+      "discover": "Descobrir",
       "post": "Postar",
-      "activity": "Activity",
+      "activity": "Mural",
       "profile": "Perfil"
     },
     "bootTitle": "Abrindo app",
@@ -54,7 +54,7 @@
     }
   },
   "home": {
-    "eyebrow": "Home",
+    "eyebrow": "Pagina inicial",
     "headline": "Em alta agora",
     "popularTab": "Popular",
     "reviewsTab": "Reviews",
@@ -93,12 +93,38 @@
     "peopleReading_plural": "{{count}} pessoas lendo agora"
   },
   "search": {
+    "title": "Buscar livro",
     "placeholder": "Buscar livros...",
     "noResults": "Nenhum resultado encontrado",
-    "filters": "Filtros"
+    "filters": "Filtros",
+    "searchRow": "Buscar livro",
+    "searchPlaceholder": "Titulo, autor ou ISBN",
+    "searchAction": "Buscar",
+    "noMetadata": "Sem metadados",
+    "pages": "{{count}} paginas",
+    "cardTheme": "Visual do card",
+    "publishStatus": "Publicacao",
+    "composeTitle": "Montar post",
+    "selectedBook": "Livro escolhido",
+    "publishToWall": "O que vai para o mural?",
+    "rating": "Nota",
+    "reviewPlaceholder": "O que vale destacar nessa leitura?",
+    "finishDate": "Data de conclusao",
+    "datePlaceholder": "2026-04-20",
+    "themeLabel": "Visual do card",
+    "composeButton": "Publicar no mural",
+    "composeButtonLoading": "Publicando...",
+    "resultsTitle": "Resultados",
+    "resultsMeta": "{{count}} livros encontrados",
+    "resultsEmpty": "Busque um livro para abrir o composer.",
+    "touchToSelect": "Toque para selecionar",
+    "selectedToPublish": "Livro selecionado",
+    "resultMeta": "{{count}} paginas",
+    "openWall": "Abrir mural",
+    "previewTitle": "Preview do card"
   },
   "discover": {
-    "title": "Browse",
+    "title": "Descobrir",
     "back": "Voltar",
     "results": "Resultados",
     "resultsUpdating": "atualizando...",
@@ -188,7 +214,7 @@
     "reviewsCount_plural": "{{count}} reviews"
   },
   "activity": {
-    "eyebrow": "Activity",
+    "eyebrow": "Mural",
     "title": "Movimento do app",
     "followingTab": "Seguindo",
     "youTab": "Voce",
