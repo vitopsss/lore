@@ -258,10 +258,7 @@ export const PostScreen = ({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <SectionHeader
-        eyebrow={t("post.eyebrow")}
-        title={isEditing ? t("post.titleEdit") : t("post.titleCreate")}
-      />
+      <SectionHeader title={t("post.title")} />
 
       <View style={styles.stepCard}>
         <View style={styles.stepHeader}>

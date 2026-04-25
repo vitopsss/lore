@@ -251,7 +251,7 @@ export const HomeScreen = ({
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
-        <SectionHeader title={t("home.headline")} />
+        <SectionHeader title={t("home.tab")} />
         {currentStreak > 0 ? (
           <View style={styles.streakBadge}>
             <Text style={styles.streakBadgeIcon}>{"\uD83D\uDD25"}</Text>

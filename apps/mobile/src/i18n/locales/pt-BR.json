@@ -54,7 +54,7 @@
     }
   },
   "home": {
-    "eyebrow": "Pagina inicial",
+    "tab": "Inicio",
     "headline": "Em alta agora",
     "popularTab": "Popular",
     "reviewsTab": "Reviews",
@@ -216,8 +216,7 @@
     "reviewsCount_plural": "{{count}} reviews"
   },
   "activity": {
-    "eyebrow": "Mural",
-    "title": "Movimento do app",
+    "title": "Mural",
     "followingTab": "Seguindo",
     "youTab": "Voce",
     "followingTitle": "Feed da comunidade",
@@ -296,6 +295,7 @@
     "emptySimilarStrong": "Ainda nao encontrei similares fortes para este livro."
   },
   "post": {
+    "title": "Postar",
     "eyebrow": "Postar",
     "titleCreate": "Avaliar livro",
     "titleEdit": "Editar avaliacao",
@@ -365,8 +365,7 @@
     }
   },
   "profile": {
-    "eyebrow": "Perfil",
-    "title": "Seu perfil",
+    "title": "Perfil",
     "loading": "Carregando perfil...",
     "tabs": {
       "profile": "Perfil",

@@ -93,11 +93,7 @@ export const ProfileScreen = ({
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <SectionHeader
-        eyebrow={t("profile.eyebrow")}
-        title={t("profile.title")}
-        subtitle={`@${viewerUsername}`}
-      />
+      <SectionHeader title={t("profile.title")} />
 
       <View style={styles.profileHero}>
         <View style={styles.avatar}>

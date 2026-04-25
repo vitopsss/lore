@@ -54,7 +54,7 @@
     }
   },
   "home": {
-    "eyebrow": "Home",
+    "tab": "Home",
     "headline": "Trending now",
     "popularTab": "Popular",
     "reviewsTab": "Reviews",
@@ -214,8 +214,7 @@
     "reviewsCount_plural": "{{count}} reviews"
   },
   "activity": {
-    "eyebrow": "Feed",
-    "title": "App activity",
+    "title": "Feed",
     "followingTab": "Following",
     "youTab": "You",
     "followingTitle": "Community feed",
@@ -363,8 +362,7 @@
     }
   },
   "profile": {
-    "eyebrow": "Profile",
-    "title": "Your profile",
+    "title": "Profile",
     "loading": "Loading profile...",
     "tabs": {
       "profile": "Profile",
